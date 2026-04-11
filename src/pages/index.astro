@@ -1,0 +1,183 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PasswordGate from '../components/PasswordGate.astro';
+import StatusHero from '../components/StatusHero.astro';
+import ProgressBar from '../components/ProgressBar.astro';
+import RouteMap from '../components/RouteMap.astro';
+import Countdown from '../components/Countdown.astro';
+import PhotoFeed from '../components/PhotoFeed.astro';
+import UpcomingSchedule from '../components/UpcomingSchedule.astro';
+
+import { getCollection } from 'astro:content';
+import {
+  getTripState,
+  getCurrentDay,
+  TRIP_LENGTH_DAYS,
+  TRIP_START,
+  TRIP_END,
+} from '../lib/dates';
+import countries from '../data/countries.json';
+
+const state = getTripState();
+const currentDay = state === 'pre' ? 0 : getCurrentDay();
+
+// Latest post → drives status hero & current location on map
+const posts = await getCollection('posts');
+const sorted = posts
+  .slice()
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+const latest = sorted[0];
+
+const latestCountry = latest
+  ? countries.find((c) => c.id === latest.data.country)
+  : undefined;
+
+const headerLine =
+  state === 'live'
+    ? `Day ${currentDay} of ${TRIP_LENGTH_DAYS}`
+    : state === 'post'
+      ? `${TRIP_LENGTH_DAYS} days · 4 countries`
+      : 'Southeast Asia · 2026';
+
+const footerDates = `${TRIP_START.toLocaleDateString('en-US', {
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+})} – ${TRIP_END.toLocaleDateString('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: 'UTC',
+})}`;
+---
+
+<Layout>
+  <PasswordGate />
+
+  <header class="site-header container">
+    <h1 class="site-title">Where Is Ray</h1>
+    <span class="label header-meta">{headerLine}</span>
+  </header>
+
+  {
+    state === 'pre' ? (
+      <>
+        <Countdown />
+        <RouteMap currentCoordinates={null} currentDay={0} />
+        <section class="countries container section" aria-label="Itinerary">
+          <ul class="country-list">
+            {countries.map((c) => (
+              <li class="country-row">
+                <span class="country-flag" aria-hidden="true">
+                  {c.flag}
+                </span>
+                <span class="country-name" style={`color: ${c.color};`}>
+                  {c.name}
+                </span>
+                <span class="country-dates text-tertiary">
+                  {new Date(c.startDate).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    timeZone: 'UTC',
+                  })}{' '}
+                  –{' '}
+                  {new Date(c.endDate).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    timeZone: 'UTC',
+                  })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </>
+    ) : (
+      <>
+        <StatusHero
+          state={state}
+          city={latest?.data.location}
+          flag={latestCountry?.flag}
+          countryName={latestCountry?.name}
+        />
+        <ProgressBar currentDay={currentDay} />
+        <RouteMap
+          currentCoordinates={latest?.data.coordinates ?? null}
+          currentDay={currentDay}
+        />
+        {state === 'live' && <UpcomingSchedule />}
+        <hr class="divider" />
+        <PhotoFeed />
+      </>
+    )
+  }
+
+  <footer class="site-footer container">
+    <span class="label">{footerDates}</span>
+  </footer>
+</Layout>
+
+<style>
+  .site-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 28px;
+    padding-bottom: 8px;
+    gap: 16px;
+  }
+
+  .header-meta {
+    white-space: nowrap;
+  }
+
+  .site-footer {
+    padding-top: 64px;
+    padding-bottom: 48px;
+    text-align: center;
+  }
+
+  /* Pre-trip country list */
+  .countries {
+    margin-top: 40px;
+  }
+
+  .country-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .country-row {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 14px;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .country-row:last-child {
+    border-bottom: none;
+  }
+
+  .country-flag {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .country-name {
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .country-dates {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+</style>

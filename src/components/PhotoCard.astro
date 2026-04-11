@@ -1,0 +1,182 @@
+---
+interface Props {
+  day: number;
+  location: string;
+  title: string;
+  caption: string;
+  images: { url: string; alt: string }[];
+}
+
+const { day, location, title, caption, images } = Astro.props;
+const isMulti = images.length > 1;
+const cardId = `pc-${Math.random().toString(36).slice(2, 10)}`;
+---
+
+<article class="card fade-in" data-card>
+  {
+    isMulti ? (
+      <div class="scroller" data-scroller data-card-id={cardId}>
+        <div class="scroller-track">
+          {images.map((img, i) => (
+            <div class="scroller-slide" data-index={i}>
+              <img src={img.url} alt={img.alt} loading="lazy" decoding="async" />
+            </div>
+          ))}
+        </div>
+        <div class="dots" data-dots aria-hidden="true">
+          {images.map((_, i) => (
+            <span class={`dot${i === 0 ? ' active' : ''}`} data-dot-index={i} />
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div class="single">
+        <img src={images[0].url} alt={images[0].alt} loading="lazy" decoding="async" />
+      </div>
+    )
+  }
+
+  <div class="meta">
+    <span class="label">Day {day}</span>
+    <span class="dot-sep" aria-hidden="true">·</span>
+    <span class="label">{location}</span>
+  </div>
+
+  <h2 class="card-title">{title}</h2>
+  <p class="card-caption">{caption}</p>
+</article>
+
+<style>
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .single img,
+  .scroller-slide img {
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-card);
+    background: var(--surface);
+  }
+
+  /* ---- Multi-image horizontal scroll ---- */
+  .scroller {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .scroller-track {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    gap: 8px;
+    scroll-behavior: smooth;
+  }
+
+  .scroller-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scroller-slide {
+    flex: 0 0 100%;
+    scroll-snap-align: center;
+  }
+
+  .dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 200ms ease, transform 200ms ease;
+  }
+
+  .dot.active {
+    background: var(--text-secondary);
+    transform: scale(1.2);
+  }
+
+  /* ---- Metadata + caption ---- */
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+
+  .dot-sep {
+    color: var(--text-tertiary);
+    font-size: 10px;
+  }
+
+  .card-title {
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--text);
+  }
+
+  .card-caption {
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+</style>
+
+<script>
+  // Dot indicator sync for multi-image scrollers. Also: shared IntersectionObserver
+  // to fade cards in as they enter the viewport.
+  (function () {
+    // ---- Fade-in observer ----
+    const cards = document.querySelectorAll<HTMLElement>('[data-card]');
+    if (cards.length && 'IntersectionObserver' in window) {
+      const io = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+              io.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+      );
+      cards.forEach((c) => io.observe(c));
+    } else {
+      // No IO support — show everything.
+      cards.forEach((c) => c.classList.add('is-visible'));
+    }
+
+    // ---- Scroller dot sync ----
+    const scrollers = document.querySelectorAll<HTMLElement>('[data-scroller]');
+    scrollers.forEach((scroller) => {
+      const track = scroller.querySelector<HTMLElement>('.scroller-track');
+      const dots = scroller.querySelectorAll<HTMLElement>('[data-dot-index]');
+      if (!track || !dots.length) return;
+
+      let raf = 0;
+      track.addEventListener('scroll', () => {
+        if (raf) return;
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          const idx = Math.round(track.scrollLeft / track.clientWidth);
+          dots.forEach((d, i) => d.classList.toggle('active', i === idx));
+        });
+      });
+    });
+  })();
+</script>

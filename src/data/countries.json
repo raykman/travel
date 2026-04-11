@@ -1,0 +1,42 @@
+[
+  {
+    "id": "vietnam",
+    "name": "Vietnam",
+    "flag": "🇻🇳",
+    "color": "#C47A5A",
+    "startDay": 1,
+    "endDay": 21,
+    "startDate": "2026-05-28",
+    "endDate": "2026-06-17"
+  },
+  {
+    "id": "cambodia",
+    "name": "Cambodia",
+    "flag": "🇰🇭",
+    "color": "#8B7355",
+    "startDay": 22,
+    "endDay": 31,
+    "startDate": "2026-06-18",
+    "endDate": "2026-06-27"
+  },
+  {
+    "id": "laos",
+    "name": "Laos",
+    "flag": "🇱🇦",
+    "color": "#6B8F71",
+    "startDay": 32,
+    "endDay": 43,
+    "startDate": "2026-06-28",
+    "endDate": "2026-07-09"
+  },
+  {
+    "id": "indonesia",
+    "name": "Indonesia",
+    "flag": "🇮🇩",
+    "color": "#7A8B99",
+    "startDay": 44,
+    "endDay": 62,
+    "startDate": "2026-07-10",
+    "endDate": "2026-07-28"
+  }
+]

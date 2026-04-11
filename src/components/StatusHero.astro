@@ -1,0 +1,100 @@
+---
+import type { TripState } from '../lib/dates';
+
+interface Props {
+  state: TripState;
+  city?: string;
+  flag?: string;
+  countryName?: string;
+}
+
+const { state, city, flag, countryName } = Astro.props;
+---
+
+<section class="hero container" aria-label="Current status">
+  {state === 'live' && city && (
+    <>
+      <div class="hero-label-row">
+        <span class="pulse-dot" aria-hidden="true">
+          <span class="pulse-core"></span>
+        </span>
+        <span class="label">Currently in</span>
+      </div>
+      <h1 class="display hero-city">
+        {city}
+        {flag && <span class="flag" aria-label={countryName}>{flag}</span>}
+      </h1>
+    </>
+  )}
+
+  {state === 'pre' && (
+    <>
+      <span class="label">Departing soon</span>
+      <h1 class="display hero-city">Southeast Asia</h1>
+    </>
+  )}
+
+  {state === 'post' && (
+    <>
+      <span class="label">Trip complete</span>
+      <h1 class="display hero-city">62 days · 4 countries</h1>
+    </>
+  )}
+</section>
+
+<style>
+  .hero {
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .hero-label-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .hero-city {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .flag {
+    font-size: 0.7em;
+    line-height: 1;
+    filter: saturate(0.85);
+  }
+
+  /* Pulsing dot for current location */
+  .pulse-dot {
+    position: relative;
+    width: 10px;
+    height: 10px;
+    display: inline-block;
+  }
+
+  .pulse-core {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 0 rgba(184, 168, 138, 0.35);
+    animation: pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(184, 168, 138, 0.35);
+    }
+    50% {
+      transform: scale(1.4);
+      box-shadow: 0 0 0 6px rgba(184, 168, 138, 0.05);
+    }
+  }
+</style>

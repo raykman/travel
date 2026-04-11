@@ -1,0 +1,185 @@
+/* ---------- Design tokens ---------- */
+:root {
+  /* Charcoal theme */
+  --bg: #1A1B1E;
+  --surface: #242528;
+  --text: #E0E1E3;
+  --text-secondary: #95979D;
+  --text-tertiary: #65676D;
+  --border: #303136;
+  --accent: #B8A88A;          /* Sand */
+  --map-dot: #2A2B2F;
+
+  /* Country colors (progress bar + map labels) */
+  --vietnam: #C47A5A;         /* Terracotta */
+  --cambodia: #8B7355;        /* Warm brown */
+  --laos: #6B8F71;            /* Sage */
+  --indonesia: #7A8B99;       /* Slate */
+
+  /* Spacing */
+  --content-max: 680px;
+  --content-pad: clamp(16px, 5vw, 24px);
+  --section-gap: 48px;
+  --section-gap-lg: 64px;
+
+  /* Radii */
+  --radius-card: 8px;
+  --radius-map: 12px;
+  --radius-input: 8px;
+}
+
+/* ---------- Reset & base ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 400;
+  min-height: 100dvh;
+  min-height: 100vh;
+}
+
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+}
+
+input {
+  font-family: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* ---------- Layout helpers ---------- */
+.container {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding-left: var(--content-pad);
+  padding-right: var(--content-pad);
+}
+
+.section {
+  margin-top: var(--section-gap);
+  margin-bottom: var(--section-gap);
+}
+
+@media (min-width: 640px) {
+  .section {
+    margin-top: var(--section-gap-lg);
+    margin-bottom: var(--section-gap-lg);
+  }
+}
+
+/* ---------- Typography primitives ---------- */
+.display {
+  font-size: clamp(36px, 7vw, 48px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.site-title {
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+@media (min-width: 640px) {
+  .site-title {
+    font-size: 18px;
+  }
+}
+
+.label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.label-lg {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-tertiary {
+  color: var(--text-tertiary);
+}
+
+/* ---------- Divider ---------- */
+.divider {
+  width: 28px;
+  height: 1px;
+  background: var(--border);
+  border: none;
+  margin: var(--section-gap) auto;
+}
+
+/* ---------- Fade-in (used by PhotoCard) ---------- */
+.fade-in {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 600ms ease, transform 600ms ease;
+  will-change: opacity, transform;
+}
+
+.fade-in.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
