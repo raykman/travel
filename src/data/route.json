@@ -1,0 +1,98 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "city": "Hanoi", "country": "vietnam", "day": 1 },
+      "geometry": { "type": "Point", "coordinates": [105.8542, 21.0285] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "Ninh Binh", "country": "vietnam", "day": 4 },
+      "geometry": { "type": "Point", "coordinates": [105.9750, 20.2506] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "Hue", "country": "vietnam", "day": 8 },
+      "geometry": { "type": "Point", "coordinates": [107.5909, 16.4637] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "Hoi An", "country": "vietnam", "day": 12 },
+      "geometry": { "type": "Point", "coordinates": [108.338, 15.8801] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "Ho Chi Minh City", "country": "vietnam", "day": 17 },
+      "geometry": { "type": "Point", "coordinates": [106.6297, 10.8231] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "Siem Reap", "country": "cambodia", "day": 22 },
+      "geometry": { "type": "Point", "coordinates": [103.8448, 13.3671] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "Phnom Penh", "country": "cambodia", "day": 27 },
+      "geometry": { "type": "Point", "coordinates": [104.9160, 11.5564] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "Luang Prabang", "country": "laos", "day": 32 },
+      "geometry": { "type": "Point", "coordinates": [102.1357, 19.8833] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "Vang Vieng", "country": "laos", "day": 37 },
+      "geometry": { "type": "Point", "coordinates": [102.4489, 18.9227] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "Vientiane", "country": "laos", "day": 41 },
+      "geometry": { "type": "Point", "coordinates": [102.6331, 17.9757] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "Ubud", "country": "indonesia", "day": 44 },
+      "geometry": { "type": "Point", "coordinates": [115.2625, -8.5069] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "Canggu", "country": "indonesia", "day": 50 },
+      "geometry": { "type": "Point", "coordinates": [115.1386, -8.6478] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "Nusa Penida", "country": "indonesia", "day": 55 },
+      "geometry": { "type": "Point", "coordinates": [115.5444, -8.7275] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "city": "Gili Trawangan", "country": "indonesia", "day": 60 },
+      "geometry": { "type": "Point", "coordinates": [116.0333, -8.3500] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "route" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [105.8542, 21.0285],
+          [105.9750, 20.2506],
+          [107.5909, 16.4637],
+          [108.338, 15.8801],
+          [106.6297, 10.8231],
+          [103.8448, 13.3671],
+          [104.9160, 11.5564],
+          [102.1357, 19.8833],
+          [102.4489, 18.9227],
+          [102.6331, 17.9757],
+          [115.2625, -8.5069],
+          [115.1386, -8.6478],
+          [115.5444, -8.7275],
+          [116.0333, -8.3500]
+        ]
+      }
+    }
+  ]
+}

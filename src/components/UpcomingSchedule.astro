@@ -1,0 +1,83 @@
+---
+import { getUpcoming, type UpcomingEntry } from '../lib/notion';
+
+const items: UpcomingEntry[] = await getUpcoming();
+---
+
+{
+  items.length > 0 && (
+    <section class="upcoming container section" aria-labelledby="upcoming-heading">
+      <h2 id="upcoming-heading" class="label-lg upcoming-heading">Coming up</h2>
+      <ul class="upcoming-list">
+        {items.map((item) => (
+          <li class="upcoming-item">
+            <div class="upcoming-day">
+              <span class="label">Day {item.day}</span>
+              <span class="upcoming-date text-tertiary">{item.dateLabel}</span>
+            </div>
+            <div class="upcoming-body">
+              <p class="upcoming-title">{item.title}</p>
+              {item.subtitle && (
+                <p class="upcoming-subtitle text-secondary">{item.subtitle}</p>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+<style>
+  .upcoming-heading {
+    margin: 0 0 20px;
+    display: block;
+  }
+
+  .upcoming-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .upcoming-item {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 16px;
+    align-items: baseline;
+  }
+
+  .upcoming-day {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .upcoming-date {
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+
+  .upcoming-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .upcoming-title {
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0;
+    color: var(--text);
+  }
+
+  .upcoming-subtitle {
+    font-size: 13px;
+    font-weight: 300;
+    margin: 0;
+    line-height: 1.5;
+  }
+</style>

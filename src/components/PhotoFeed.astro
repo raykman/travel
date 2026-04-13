@@ -1,0 +1,51 @@
+---
+import { getCollection, type CollectionEntry } from 'astro:content';
+import PhotoCard from './PhotoCard.astro';
+
+type Post = CollectionEntry<'posts'>;
+
+const posts = await getCollection('posts');
+
+// Reverse-chronological: newest first.
+const sorted: Post[] = posts.slice().sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime()
+);
+---
+
+<section class="feed container section" aria-labelledby="feed-heading">
+  <h2 id="feed-heading" class="label-lg feed-heading">Field notes</h2>
+
+  {sorted.length === 0 ? (
+    <p class="feed-empty text-tertiary">No entries yet.</p>
+  ) : (
+    <div class="feed-list">
+      {sorted.map((post) => (
+        <PhotoCard
+          day={post.data.day}
+          location={post.data.location}
+          title={post.data.title}
+          caption={post.body.trim()}
+          images={post.data.images}
+        />
+      ))}
+    </div>
+  )}
+</section>
+
+<style>
+  .feed-heading {
+    margin: 0 0 24px;
+    display: block;
+  }
+
+  .feed-list {
+    display: flex;
+    flex-direction: column;
+    gap: 48px;
+  }
+
+  .feed-empty {
+    font-size: 13px;
+    margin: 0;
+  }
+</style>

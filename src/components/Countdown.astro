@@ -1,0 +1,60 @@
+---
+import { getDaysUntilStart, TRIP_START } from '../lib/dates';
+
+const days = getDaysUntilStart();
+
+const startLabel = TRIP_START.toLocaleDateString('en-US', {
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+---
+
+<section class="countdown container" aria-label="Countdown to trip">
+  <span class="label countdown-label">Departing in</span>
+  <p class="countdown-number">
+    {days}
+    <span class="countdown-unit">{days === 1 ? 'day' : 'days'}</span>
+  </p>
+  <span class="label countdown-date">{startLabel}</span>
+</section>
+
+<style>
+  .countdown {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 40px;
+    text-align: center;
+  }
+
+  .countdown-label {
+    display: block;
+  }
+
+  .countdown-number {
+    font-size: clamp(56px, 14vw, 88px);
+    font-weight: 500;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    margin: 0;
+    color: var(--text);
+  }
+
+  .countdown-unit {
+    font-size: 0.28em;
+    font-weight: 400;
+    color: var(--text-tertiary);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-left: 12px;
+    vertical-align: middle;
+  }
+
+  .countdown-date {
+    display: block;
+    color: var(--text-tertiary);
+  }
+</style>
