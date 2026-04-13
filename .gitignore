@@ -14,6 +14,9 @@ node_modules/
 dist/
 build/
 
+# Downloaded Notion images (re-fetched at build time)
+public/uploads/
+
 # Astro build cache
 .astro/
 

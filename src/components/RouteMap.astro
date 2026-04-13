@@ -27,7 +27,7 @@ const mapConfig = {
 };
 ---
 
-<section class="map-section container" aria-label="Route map">
+<section class="map-section" aria-label="Route map">
   <div class="map-wrap">
     <div id="route-map" class="map"></div>
     <script
@@ -71,11 +71,12 @@ const mapConfig = {
 <style>
   .map-section {
     margin-top: 32px;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
   }
 
   .map-wrap {
     position: relative;
-    border-radius: var(--radius-map);
     overflow: hidden;
     background: var(--surface);
   }
@@ -83,13 +84,13 @@ const mapConfig = {
   .map {
     width: 100%;
     height: 55vw;
-    max-height: 480px;
-    min-height: 220px;
+    max-height: 600px;
+    min-height: 280px;
   }
 
   @media (min-width: 640px) {
     .map {
-      height: 380px;
+      height: 520px;
     }
   }
 
@@ -245,23 +246,30 @@ const mapConfig = {
     const points = routeData.features.filter(
       (f) => f.geometry.type === 'Point'
     );
-    const bounds = new mapboxgl.LngLatBounds();
-    points.forEach((p) => bounds.extend(p.geometry.coordinates));
+    const allBounds = new mapboxgl.LngLatBounds();
+    points.forEach((p) => allBounds.extend(p.geometry.coordinates));
+
+    // Zoom to nearby region when we have a current position, full route otherwise
+    const DAY_RANGE = 20;
+    const nearbyPoints = currentDay
+      ? points.filter(
+          (p) =>
+            p.properties.day >= currentDay - DAY_RANGE &&
+            p.properties.day <= currentDay + DAY_RANGE
+        )
+      : points;
+    const initialBounds = new mapboxgl.LngLatBounds();
+    nearbyPoints.forEach((p) => initialBounds.extend(p.geometry.coordinates));
 
     const map = new mapboxgl.Map({
       container: mapEl,
       style: 'mapbox://styles/mapbox/dark-v11',
-      bounds: bounds,
-      fitBoundsOptions: { padding: 40, duration: 0 },
-      interactive: false, // off until toggle enables
+      bounds: initialBounds.isEmpty() ? allBounds : initialBounds,
+      fitBoundsOptions: { padding: 60, duration: 0 },
+      interactive: true,
+      cooperativeGestures: true, // Ctrl/Cmd+scroll to zoom; prevents hijacking page scroll
       attributionControl: { compact: true },
     });
-
-    // Non-interactive by default; toggle re-enables.
-    map.scrollZoom.disable();
-    map.dragPan.disable();
-    map.touchZoomRotate.disable();
-    map.doubleClickZoom.disable();
 
     map.on('load', () => {
       // Override base colors to match charcoal theme
@@ -435,24 +443,14 @@ const mapConfig = {
         toggle.setAttribute('aria-label', on ? 'Close fullscreen' : 'Expand map');
         toggle.setAttribute('title', on ? 'Close fullscreen' : 'Expand map');
       }
-      if (on) {
-        map.scrollZoom.enable();
-        map.dragPan.enable();
-        map.touchZoomRotate.enable();
-        map.doubleClickZoom.enable();
-      } else {
-        map.scrollZoom.disable();
-        map.dragPan.disable();
-        map.touchZoomRotate.disable();
-        map.doubleClickZoom.disable();
-      }
-      // Wait a frame for layout to settle, then tell Mapbox to re-measure
-      // and refit to the route bounds at the new container size.
+      // Wait a frame for layout to settle, then tell Mapbox to re-measure.
+      // Fullscreen shows the entire route; inline view focuses on the region.
       requestAnimationFrame(() => {
         map.resize();
-        if (!bounds.isEmpty()) {
-          map.fitBounds(bounds, {
-            padding: on ? 80 : 40,
+        const b = on ? allBounds : (initialBounds.isEmpty() ? allBounds : initialBounds);
+        if (!b.isEmpty()) {
+          map.fitBounds(b, {
+            padding: on ? 80 : 60,
             duration: 300,
           });
         }

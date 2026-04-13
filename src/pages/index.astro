@@ -8,7 +8,7 @@ import Countdown from '../components/Countdown.astro';
 import PhotoFeed from '../components/PhotoFeed.astro';
 import UpcomingSchedule from '../components/UpcomingSchedule.astro';
 
-import { getCollection } from 'astro:content';
+import { getAllPosts } from '../lib/posts';
 import {
   getTripState,
   getCurrentDay,
@@ -22,11 +22,8 @@ const state = getTripState();
 const currentDay = state === 'pre' ? 0 : getCurrentDay();
 
 // Latest post → drives status hero & current location on map
-const posts = await getCollection('posts');
-const sorted = posts
-  .slice()
-  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
-const latest = sorted[0];
+const posts = await getAllPosts();
+const latest = posts[0]; // already sorted newest-first
 
 const latestCountry = latest
   ? countries.find((c) => c.id === latest.data.country)
@@ -34,10 +31,10 @@ const latestCountry = latest
 
 const headerLine =
   state === 'live'
-    ? `Day ${currentDay} of ${TRIP_LENGTH_DAYS}`
+    ? `Day ${currentDay}`
     : state === 'post'
-      ? `${TRIP_LENGTH_DAYS} days · 4 countries`
-      : 'Southeast Asia · 2026';
+      ? `${TRIP_LENGTH_DAYS} days · 5 countries`
+      : '2026';
 
 const footerDates = `${TRIP_START.toLocaleDateString('en-US', {
   month: 'short',
