@@ -1,25 +1,22 @@
 ---
-import { getCollection, type CollectionEntry } from 'astro:content';
+import { getAllPosts, type Post } from '../lib/posts';
 import PhotoCard from './PhotoCard.astro';
 
-type Post = CollectionEntry<'posts'>;
+const posts = await getAllPosts(); // already sorted newest-first
 
-const posts = await getCollection('posts');
-
-// Reverse-chronological: newest first.
-const sorted: Post[] = posts.slice().sort(
-  (a, b) => b.data.date.getTime() - a.data.date.getTime()
-);
+// PhotoCard requires at least one image, so filter out imageless posts
+// (can happen with Notion entries that omit the Image URL field).
+const withImages: Post[] = posts.filter((p) => p.data.images.length > 0);
 ---
 
 <section class="feed container section" aria-labelledby="feed-heading">
   <h2 id="feed-heading" class="label-lg feed-heading">Field notes</h2>
 
-  {sorted.length === 0 ? (
+  {withImages.length === 0 ? (
     <p class="feed-empty text-tertiary">No entries yet.</p>
   ) : (
     <div class="feed-list">
-      {sorted.map((post) => (
+      {withImages.map((post) => (
         <PhotoCard
           day={post.data.day}
           location={post.data.location}
