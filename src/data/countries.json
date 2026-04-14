@@ -15,38 +15,38 @@
     "flag": "🇻🇳",
     "color": "#C47A5A",
     "startDay": 24,
-    "endDay": 44,
+    "endDay": 38,
     "startDate": "2026-05-24",
-    "endDate": "2026-06-13"
+    "endDate": "2026-06-07"
   },
   {
     "id": "cambodia",
     "name": "Cambodia",
     "flag": "🇰🇭",
     "color": "#8B7355",
-    "startDay": 45,
-    "endDay": 54,
-    "startDate": "2026-06-14",
-    "endDate": "2026-06-23"
+    "startDay": 39,
+    "endDay": 48,
+    "startDate": "2026-06-08",
+    "endDate": "2026-06-17"
   },
   {
     "id": "laos",
     "name": "Laos",
     "flag": "🇱🇦",
     "color": "#6B8F71",
-    "startDay": 55,
-    "endDay": 66,
-    "startDate": "2026-06-24",
-    "endDate": "2026-07-05"
+    "startDay": 49,
+    "endDay": 60,
+    "startDate": "2026-06-18",
+    "endDate": "2026-06-29"
   },
   {
     "id": "indonesia",
     "name": "Indonesia",
     "flag": "🇮🇩",
     "color": "#7A8B99",
-    "startDay": 67,
-    "endDay": 89,
-    "startDate": "2026-07-06",
-    "endDate": "2026-07-28"
+    "startDay": 61,
+    "endDay": 79,
+    "startDate": "2026-06-30",
+    "endDate": "2026-07-18"
   }
 ]
