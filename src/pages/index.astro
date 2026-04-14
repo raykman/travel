@@ -13,8 +13,6 @@ import {
   getTripState,
   getCurrentDay,
   TRIP_LENGTH_DAYS,
-  TRIP_START,
-  TRIP_END,
 } from '../lib/dates';
 import countries from '../data/countries.json';
 
@@ -36,16 +34,6 @@ const headerLine =
       ? `${TRIP_LENGTH_DAYS} days · 5 countries`
       : '2026';
 
-const footerDates = `${TRIP_START.toLocaleDateString('en-US', {
-  month: 'short',
-  day: 'numeric',
-  timeZone: 'UTC',
-})} – ${TRIP_END.toLocaleDateString('en-US', {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  timeZone: 'UTC',
-})}`;
 ---
 
 <Layout>
@@ -109,9 +97,6 @@ const footerDates = `${TRIP_START.toLocaleDateString('en-US', {
     )
   }
 
-  <footer class="site-footer container">
-    <span class="label">{footerDates}</span>
-  </footer>
 </Layout>
 
 <style>
@@ -126,12 +111,6 @@ const footerDates = `${TRIP_START.toLocaleDateString('en-US', {
 
   .header-meta {
     white-space: nowrap;
-  }
-
-  .site-footer {
-    padding-top: 64px;
-    padding-bottom: 48px;
-    text-align: center;
   }
 
   /* Pre-trip country list */

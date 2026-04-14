@@ -2,8 +2,8 @@
 // All dates are interpreted in the site's notional "trip time" (UTC dates).
 
 export const TRIP_START = new Date('2026-05-01T00:00:00Z');
-export const TRIP_END = new Date('2026-07-28T23:59:59Z');
-export const TRIP_LENGTH_DAYS = 89;
+export const TRIP_END = new Date('2026-07-18T23:59:59Z');
+export const TRIP_LENGTH_DAYS = 79;
 
 export type TripState = 'pre' | 'live' | 'post';
 

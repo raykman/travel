@@ -211,6 +211,7 @@ const mapConfig = {
   :global(.mapboxgl-ctrl-attrib) {
     opacity: 0.35;
   }
+
 </style>
 
 <script>
@@ -271,7 +272,7 @@ const mapConfig = {
       attributionControl: { compact: true },
     });
 
-    map.on('load', () => {
+    const onLoad = () => {
       // Override base colors to match charcoal theme
       try {
         if (map.getLayer('background')) {
@@ -317,9 +318,9 @@ const mapConfig = {
           type: 'line',
           source: 'route-full',
           paint: {
-            'line-color': '#303136',
-            'line-width': 1.5,
-            'line-dasharray': [2, 3],
+            'line-color': '#505258',
+            'line-width': 1.8,
+            'line-dasharray': [3, 3],
           },
         });
 
@@ -363,8 +364,8 @@ const mapConfig = {
           paint: {
             'circle-radius': 4,
             'circle-color': 'rgba(0,0,0,0)',
-            'circle-stroke-color': '#303136',
-            'circle-stroke-width': 1.2,
+            'circle-stroke-color': '#505258',
+            'circle-stroke-width': 1.4,
           },
         });
       }
@@ -425,7 +426,14 @@ const mapConfig = {
           .setLngLat(p.geometry.coordinates)
           .addTo(map);
       });
-    });
+    };
+
+    // Fire on load, or immediately if already loaded (race condition guard)
+    if (map.isStyleLoaded()) {
+      onLoad();
+    } else {
+      map.on('load', onLoad);
+    }
 
     // Fullscreen + interaction toggle. Fullscreen pins `.map-wrap` to the
     // viewport via CSS (`.is-fullscreen`), which changes the container size,
