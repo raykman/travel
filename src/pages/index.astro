@@ -66,7 +66,7 @@ const postStats = state === 'post' && posts.length > 0 ? {
 
   <!-- Base layer: full-bleed fixed map -->
   <RouteMap
-    currentCoordinates={latest?.data.coordinates ?? null}
+    currentCoordinates={state === 'pre' ? [37.7749, -122.4194] : (latest?.data.coordinates ?? null)}
     currentDay={currentDay}
   />
 
@@ -95,6 +95,9 @@ const postStats = state === 'post' && posts.length > 0 ? {
               <li
                 class="country-row"
                 data-lnglat={`${c.center[0]},${c.center[1]}`}
+                role="button"
+                tabindex="0"
+                title={`Fly to ${c.name}`}
               >
                 <span class="country-flag" aria-hidden="true">{c.flag}</span>
                 <span class="country-name" style={`color: ${c.color};`}>{c.name}</span>
@@ -271,6 +274,37 @@ const postStats = state === 'post' && posts.length > 0 ? {
   }
 </script>
 
+<!-- ─── Pre-trip: click country row → fly map ───────────────────────────────── -->
+<script>
+  function initCountryClick() {
+    const map = (window as any).__map;
+    if (!map) return;
+
+    function flyToRow(el: HTMLElement) {
+      const raw = el.dataset.lnglat;
+      if (!raw) return;
+      const [lngStr, latStr] = raw.split(',');
+      const center: [number, number] = [parseFloat(lngStr), parseFloat(latStr)];
+      if (!isNaN(center[0]) && !isNaN(center[1])) {
+        map.flyTo({ center, zoom: 7, duration: 1800, essential: true, curve: 1.4 });
+      }
+    }
+
+    document.querySelectorAll<HTMLElement>('.country-row[data-lnglat]').forEach((el) => {
+      el.addEventListener('click', () => flyToRow(el));
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flyToRow(el); }
+      });
+    });
+  }
+
+  if ((window as any).__map) {
+    initCountryClick();
+  } else {
+    document.addEventListener('mapready', initCountryClick, { once: true });
+  }
+</script>
+
 <style>
   /* ── Sidebar (scroll-layer) ── */
   .scroll-layer {
@@ -397,7 +431,7 @@ const postStats = state === 'post' && posts.length > 0 ? {
     align-items: center;
     padding: 12px 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    cursor: default;
+    cursor: pointer;
     transition: background 200ms ease;
   }
 

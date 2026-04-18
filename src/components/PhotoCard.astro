@@ -154,6 +154,12 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
     flex-direction: column;
     gap: 8px;
     border-top: 1px solid rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    transition: background 150ms ease;
+  }
+
+  .card-caption-panel:hover {
+    background: rgba(255, 255, 255, 0.03);
   }
 
   /* ---- Metadata row ---- */
@@ -313,6 +319,31 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
 
 <script>
   (function () {
+    // ---- Caption click → fly map to card location ----
+    function initCaptionClick() {
+      const map = (window as any).__map;
+      if (!map) return;
+      document.querySelectorAll<HTMLElement>('[data-card][data-lnglat]').forEach((card) => {
+        const panel = card.querySelector<HTMLElement>('.card-caption-panel');
+        if (!panel) return;
+        panel.addEventListener('click', () => {
+          const raw = card.dataset.lnglat;
+          if (!raw) return;
+          const [lngStr, latStr] = raw.split(',');
+          const center: [number, number] = [parseFloat(lngStr), parseFloat(latStr)];
+          if (!isNaN(center[0]) && !isNaN(center[1])) {
+            map.flyTo({ center, zoom: 10, duration: 1800, essential: true, curve: 1.4 });
+          }
+        });
+      });
+    }
+
+    if ((window as any).__map) {
+      initCaptionClick();
+    } else {
+      document.addEventListener('mapready', () => initCaptionClick(), { once: true });
+    }
+
     // ---- Fade-in observer ----
     const cards = document.querySelectorAll<HTMLElement>('[data-card]');
     if (cards.length && 'IntersectionObserver' in window) {

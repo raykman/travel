@@ -502,6 +502,11 @@ const mapConfig = {
       ];
       handlers.forEach((h) => { try { on ? h.enable() : h.disable(); } catch (_) {} });
 
+      // pointer-events: none on .map-base blocks all input to the canvas;
+      // must be toggled here or drag/scroll never reach Mapbox handlers.
+      const mapBase = mapEl.parentElement as HTMLElement | null;
+      if (mapBase) mapBase.style.pointerEvents = on ? 'auto' : 'none';
+
       interactToggle?.setAttribute('aria-pressed', String(on));
       interactToggle?.setAttribute(
         'aria-label', on ? 'Disable map interaction' : 'Enable map interaction'
@@ -510,7 +515,6 @@ const mapConfig = {
         'title', on ? 'Disable map interaction' : 'Enable map interaction (off by default)'
       );
 
-      // When interaction is on, show a crosshair cursor on the map canvas
       if (mapEl) mapEl.style.cursor = on ? 'grab' : '';
     }
 
