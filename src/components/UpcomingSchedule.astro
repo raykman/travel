@@ -6,7 +6,7 @@ const items: UpcomingEntry[] = await getUpcoming();
 
 {
   items.length > 0 && (
-    <section class="upcoming container section" aria-labelledby="upcoming-heading">
+    <section class="upcoming glass" aria-labelledby="upcoming-heading">
       <h2 id="upcoming-heading" class="label-lg upcoming-heading">Coming up</h2>
       <ul class="upcoming-list">
         {items.map((item) => (
@@ -29,9 +29,18 @@ const items: UpcomingEntry[] = await getUpcoming();
 }
 
 <style>
+  .upcoming {
+    padding: 24px;
+  }
+
   .upcoming-heading {
     margin: 0 0 20px;
     display: block;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-tertiary);
   }
 
   .upcoming-list {

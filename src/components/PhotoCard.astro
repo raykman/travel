@@ -9,98 +9,180 @@ interface Props {
   images: { url: string; alt: string }[];
   index?: number;
   country?: string;
+  // [lat, lng] from post data — converted to "lng,lat" for Mapbox in data-lnglat
+  coordinates?: [number, number];
 }
 
-const { day, location, title, caption, images, index = 0, country } = Astro.props;
+const { day, location, title, caption, images, index = 0, country, coordinates } = Astro.props;
 const isMulti = images.length > 1;
 const cardId = `pc-${day}-${location.toLowerCase().replace(/\s+/g, '-')}`;
 const countryColor = country ? (countries.find((c) => c.id === country)?.color ?? null) : null;
 const delay = (index % 3) * 100;
-
 const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
+
+// Convert [lat, lng] → "lng,lat" string for Mapbox's flyTo center
+const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
 ---
 
-<article class="card fade-in" data-card style={cardStyle}>
-  {
-    isMulti ? (
-      <div
-        class="scroller"
-        data-scroller
-        data-card-id={cardId}
-        role="region"
-        aria-roledescription="carousel"
-        aria-label={`${title} — ${images.length} images`}
-      >
-        <div class="scroller-track" data-track>
-          {images.map((img, i) => (
-            <div
-              class="scroller-slide"
-              data-index={i}
-              role="group"
-              aria-roledescription="slide"
-              aria-label={`Image ${i + 1} of ${images.length}`}
-            >
-              <img src={img.url} alt={img.alt} loading="lazy" decoding="async" />
-            </div>
-          ))}
+<article
+  class="photo-card fade-in"
+  data-card
+  style={cardStyle}
+  {...lngLat ? { 'data-lnglat': lngLat } : {}}
+>
+  <!-- Full-bleed image area — breaks out of any container -->
+  <div class="card-media">
+    {
+      isMulti ? (
+        <div
+          class="scroller"
+          data-scroller
+          data-card-id={cardId}
+          role="region"
+          aria-roledescription="carousel"
+          aria-label={`${title} — ${images.length} images`}
+        >
+          <div class="scroller-track" data-track>
+            {images.map((img, i) => (
+              <div
+                class="scroller-slide"
+                data-index={i}
+                role="group"
+                aria-roledescription="slide"
+                aria-label={`Image ${i + 1} of ${images.length}`}
+              >
+                <img src={img.url} alt={img.alt} loading="lazy" decoding="async" />
+              </div>
+            ))}
+          </div>
+          <div class="dots" data-dots aria-hidden="true">
+            {images.map((_, i) => (
+              <span class={`dot${i === 0 ? ' active' : ''}`} data-dot-index={i} />
+            ))}
+          </div>
+          <button class="carousel-btn carousel-prev" data-prev aria-label="Previous image">
+            <svg width="8" height="13" viewBox="0 0 8 13" fill="none" aria-hidden="true">
+              <path d="M7 1L1 6.5 7 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="carousel-btn carousel-next" data-next aria-label="Next image">
+            <svg width="8" height="13" viewBox="0 0 8 13" fill="none" aria-hidden="true">
+              <path d="M1 1l6 5.5-6 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </div>
-        <div class="dots" data-dots aria-hidden="true">
-          {images.map((_, i) => (
-            <span class={`dot${i === 0 ? ' active' : ''}`} data-dot-index={i} />
-          ))}
+      ) : (
+        <div class="single">
+          <img src={images[0].url} alt={images[0].alt} loading="lazy" decoding="async" />
         </div>
-        <button class="carousel-btn carousel-prev" data-prev aria-label="Previous image">
-          <svg width="8" height="13" viewBox="0 0 8 13" fill="none" aria-hidden="true">
-            <path d="M7 1L1 6.5 7 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <button class="carousel-btn carousel-next" data-next aria-label="Next image">
-          <svg width="8" height="13" viewBox="0 0 8 13" fill="none" aria-hidden="true">
-            <path d="M1 1l6 5.5-6 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-      </div>
-    ) : (
-      <div class="single">
-        <img src={images[0].url} alt={images[0].alt} loading="lazy" decoding="async" />
-      </div>
-    )
-  }
-
-  <div class="meta">
-    {countryColor && (
-      <span class="country-dot" style={`background: ${countryColor};`} aria-hidden="true" />
-    )}
-    <span class="label">Day {day}</span>
-    <span class="dot-sep" aria-hidden="true">·</span>
-    <span class="label">{location}</span>
+      )
+    }
   </div>
 
-  <h2 class="card-title">{title}</h2>
-  <p class="card-caption">{caption}</p>
+  <!-- Glass caption panel -->
+  <div class="card-caption-panel glass">
+    <div class="meta">
+      {countryColor && (
+        <span class="country-dot" style={`background: ${countryColor};`} aria-hidden="true" />
+      )}
+      <span class="meta-label">Day {day}</span>
+      <span class="meta-sep" aria-hidden="true">·</span>
+      <span class="meta-label">{location}</span>
+    </div>
+
+    <h2 class="card-title">{title}</h2>
+    <p class="card-body">{caption}</p>
+  </div>
 </article>
 
 <style>
-  .card {
+  /* ---- Card shell ---- */
+  .photo-card {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+  }
+
+  /* ---- Full-bleed media ---- */
+  .card-media {
+    /* Break out of any parent max-width container */
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
   }
 
   .single img,
   .scroller-slide img {
     width: 100%;
-    height: auto;
-    border-radius: var(--radius-card);
+    /* Tall portrait-ish ratio on mobile, capped on desktop */
+    height: clamp(280px, 65vw, 560px);
+    object-fit: cover;
+    display: block;
     background: var(--surface);
+  }
+
+  /* ---- Caption glass panel ---- */
+  .card-caption-panel {
+    border-radius: 0 0 var(--glass-radius) var(--glass-radius);
+    padding: 20px var(--content-pad) 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    /* Constrain caption text width for readability while staying full-width visually */
+    max-width: min(640px, 100%);
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+    border-top: none;
+  }
+
+  /* ---- Metadata row ---- */
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .country-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .meta-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--text-tertiary);
+  }
+
+  .meta-sep {
+    color: var(--text-tertiary);
+    font-size: 10px;
+    opacity: 0.5;
+  }
+
+  /* ---- Title / caption ---- */
+  .card-title {
+    font-size: clamp(20px, 4vw, 26px);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin: 0;
+    color: var(--text);
+  }
+
+  .card-body {
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.70;
+    color: var(--text-secondary);
+    margin: 0;
   }
 
   /* ---- Multi-image horizontal scroll ---- */
   .scroller {
     position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
   }
 
   .scroller-track {
@@ -109,7 +191,6 @@ const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
     scroll-snap-type: x mandatory;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    gap: 8px;
     scroll-behavior: smooth;
   }
 
@@ -123,21 +204,26 @@ const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
   }
 
   .dots {
+    position: absolute;
+    bottom: 12px;
+    left: 0;
+    right: 0;
     display: flex;
     justify-content: center;
     gap: 6px;
+    pointer-events: none;
   }
 
   .dot {
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: var(--border);
+    background: rgba(255, 255, 255, 0.35);
     transition: background 200ms ease, transform 200ms ease;
   }
 
   .dot.active {
-    background: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.85);
     transform: scale(1.2);
   }
 
@@ -145,28 +231,21 @@ const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
   .carousel-btn {
     position: absolute;
     top: 0;
-    bottom: 22px; /* above dots */
-    width: 40px;
+    bottom: 0;
+    width: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text);
-    background: rgba(26, 27, 30, 0.5);
+    background: rgba(16, 16, 15, 0.45);
     border-radius: 0;
     opacity: 0;
     transition: opacity 150ms ease;
     z-index: 2;
   }
 
-  .carousel-prev {
-    left: 0;
-    border-radius: var(--radius-card) 0 0 var(--radius-card);
-  }
-
-  .carousel-next {
-    right: 0;
-    border-radius: 0 var(--radius-card) var(--radius-card) 0;
-  }
+  .carousel-prev { left: 0; }
+  .carousel-next { right: 0; }
 
   .scroller:hover .carousel-btn,
   .carousel-btn:focus-visible {
@@ -176,42 +255,6 @@ const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
   .carousel-btn[disabled] {
     opacity: 0 !important;
     pointer-events: none;
-  }
-
-  /* ---- Metadata + caption ---- */
-  .meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 4px;
-  }
-
-  .country-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .dot-sep {
-    color: var(--text-tertiary);
-    font-size: 10px;
-  }
-
-  .card-title {
-    font-size: 16px;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-    margin: 0;
-    color: var(--text);
-  }
-
-  .card-caption {
-    font-size: 14px;
-    font-weight: 300;
-    line-height: 1.65;
-    color: var(--text-secondary);
-    margin: 0;
   }
 </style>
 
@@ -229,7 +272,7 @@ const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
             }
           });
         },
-        { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+        { threshold: 0.05, rootMargin: '0px 0px -20px 0px' }
       );
       cards.forEach((c) => io.observe(c));
     } else {
@@ -265,16 +308,12 @@ const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
       let raf = 0;
       track.addEventListener('scroll', () => {
         if (raf) return;
-        raf = requestAnimationFrame(() => {
-          raf = 0;
-          updateState();
-        });
+        raf = requestAnimationFrame(() => { raf = 0; updateState(); });
       });
 
       prevBtn?.addEventListener('click', () => scrollTo(Math.max(currentIndex() - 1, 0)));
       nextBtn?.addEventListener('click', () => scrollTo(Math.min(currentIndex() + 1, totalSlides - 1)));
 
-      // Arrow key nav when scroller is focused
       scroller.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowLeft') { e.preventDefault(); scrollTo(Math.max(currentIndex() - 1, 0)); }
         if (e.key === 'ArrowRight') { e.preventDefault(); scrollTo(Math.min(currentIndex() + 1, totalSlides - 1)); }
