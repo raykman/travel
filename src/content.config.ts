@@ -6,9 +6,9 @@ const posts = defineCollection({
   schema: z.object({
     title: z.string(),
     date: z.date(),
-    day: z.number().int().min(1).max(62),
+    day: z.number().int().min(1).max(79),
     location: z.string(),
-    country: z.enum(['vietnam', 'cambodia', 'laos', 'indonesia']),
+    country: z.enum(['japan', 'vietnam', 'cambodia', 'laos', 'indonesia']),
     // [lat, lng] per spec
     coordinates: z.tuple([z.number(), z.number()]),
     images: z

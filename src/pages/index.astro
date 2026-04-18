@@ -7,6 +7,7 @@ import RouteMap from '../components/RouteMap.astro';
 import Countdown from '../components/Countdown.astro';
 import PhotoFeed from '../components/PhotoFeed.astro';
 import UpcomingSchedule from '../components/UpcomingSchedule.astro';
+import Footer from '../components/Footer.astro';
 
 import { getAllPosts } from '../lib/posts';
 import {
@@ -34,6 +35,17 @@ const headerLine =
       ? `${TRIP_LENGTH_DAYS} days · 5 countries`
       : '2026';
 
+const buildTime = new Date().toLocaleDateString('en-US', {
+  month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  timeZone: 'Asia/Bangkok',
+});
+
+const postStats = state === 'post' && posts.length > 0 ? {
+  count: posts.length,
+  countryCount: new Set(posts.map((p) => p.data.country)).size,
+  cityCount: new Set(posts.map((p) => p.data.location)).size,
+} : null;
+
 ---
 
 <Layout>
@@ -48,6 +60,10 @@ const headerLine =
     state === 'pre' ? (
       <>
         <Countdown />
+        <p class="intro-text container">
+          Japan, Vietnam, Cambodia, Laos, and Indonesia.<br />
+          Check back once the trip starts for live updates.
+        </p>
         <RouteMap currentCoordinates={null} currentDay={0} />
         <section class="countries container section" aria-label="Itinerary">
           <ul class="country-list">
@@ -85,6 +101,11 @@ const headerLine =
           flag={latestCountry?.flag}
           countryName={latestCountry?.name}
         />
+        {postStats && (
+          <p class="post-trip-stats container label-lg">
+            {postStats.count} posts · {postStats.countryCount} countries · {postStats.cityCount} cities
+          </p>
+        )}
         <ProgressBar currentDay={currentDay} />
         <RouteMap
           currentCoordinates={latest?.data.coordinates ?? null}
@@ -97,7 +118,29 @@ const headerLine =
     )
   }
 
+  <Footer buildTime={buildTime} />
+
+  <button id="back-to-top" class="back-to-top" aria-label="Back to top">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path d="M7 12V2M2 7l5-5 5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
 </Layout>
+
+<script>
+  const btn = document.getElementById('back-to-top');
+  if (btn) {
+    window.addEventListener('scroll', () => {
+      const show = window.scrollY > window.innerHeight;
+      btn.style.opacity = show ? '1' : '0';
+      btn.style.pointerEvents = show ? 'auto' : 'none';
+    }, { passive: true });
+    btn.addEventListener('click', () => {
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: reducedMotion ? 'instant' : 'smooth' });
+    });
+  }
+</script>
 
 <style>
   .site-header {
@@ -155,5 +198,45 @@ const headerLine =
     font-size: 11px;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+  }
+
+  .intro-text {
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    text-align: center;
+    max-width: 400px;
+    margin: 24px auto 0;
+  }
+
+  .post-trip-stats {
+    text-align: center;
+    margin-top: 16px;
+    margin-bottom: 0;
+    display: block;
+  }
+
+  .back-to-top {
+    position: fixed;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    right: 20px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease;
+    z-index: 50;
+  }
+
+  .back-to-top:hover {
+    color: var(--text);
   }
 </style>

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-A private, password-protected travel site for friends and family to follow a 62-day backpacking trip through Southeast Asia (May 28 – Jul 28, 2026). The site shows current location, route progress, upcoming plans, and a reverse-chronological photo feed.
+A private, password-protected travel site for friends and family to follow a 79-day backpacking trip through Asia (May 1 – Jul 18, 2026). The site shows current location, route progress, upcoming plans, and a reverse-chronological photo feed.
 
 **Live URL:** whereisray.com
 **Audience:** ~30-50 friends and family members, accessed primarily on mobile (iPhones)
@@ -77,7 +77,7 @@ A private, password-protected travel site for friends and family to follow a 62-
 
 ## Site States
 
-### Pre-trip state (before May 28, 2026)
+### Pre-trip state (before May 1, 2026)
 
 Show when `currentDate < departureDate`:
 - Same password gate
@@ -85,10 +85,10 @@ Show when `currentDate < departureDate`:
 - No photo feed section, no "coming up" section
 - Footer with trip dates
 
-### Live state (May 28 – Jul 28, 2026)
+### Live state (May 1 – Jul 18, 2026)
 
 The full layout:
-1. Header (site title + "Day X of 62")
+1. Header (site title + "Day X of 79")
 2. Status hero (pulsing dot + "Currently in" + city name + country flag)
 3. Progress bar (color-coded by country)
 4. Route map
@@ -97,9 +97,9 @@ The full layout:
 7. "Field notes" photo feed (reverse chronological)
 8. Footer
 
-### Post-trip state (after Jul 28, 2026)
+### Post-trip state (after Jul 18, 2026)
 
-- Header changes to "62 days · 4 countries"
+- Header changes to "79 days · 5 countries"
 - Status hero changes to "Trip complete" or similar
 - Progress bar fully filled
 - Map shows full route, all dots filled
@@ -391,7 +391,7 @@ Also include a LineString feature for the full route path for Mapbox to render.
 
 <!-- OG tags -->
 <meta property="og:title" content="Where Is Ray" />
-<meta property="og:description" content="Following a 62-day trip through Southeast Asia" />
+<meta property="og:description" content="Following a 79-day trip through Asia" />
 <meta property="og:image" content="/og-image.png" />
 ```
 

@@ -1,5 +1,7 @@
 ---
 import type { TripState } from '../lib/dates';
+import { TRIP_LENGTH_DAYS } from '../lib/dates';
+import countries from '../data/countries.json';
 
 interface Props {
   state: TripState;
@@ -30,14 +32,14 @@ const { state, city, flag, countryName } = Astro.props;
   {state === 'pre' && (
     <>
       <span class="label">Departing soon</span>
-      <h1 class="display hero-city">Southeast Asia</h1>
+      <h1 class="display hero-city">Asia</h1>
     </>
   )}
 
   {state === 'post' && (
     <>
       <span class="label">Trip complete</span>
-      <h1 class="display hero-city">62 days · 4 countries</h1>
+      <h1 class="display hero-city">{TRIP_LENGTH_DAYS} days · {countries.length} countries</h1>
     </>
   )}
 </section>
