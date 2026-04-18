@@ -1,0 +1,29 @@
+---
+interface Props {
+  buildTime?: string;
+}
+const { buildTime } = Astro.props;
+---
+
+<footer class="site-footer container">
+  <p class="footer-text">
+    whereisray.com · may 1 – jul 18, 2026{buildTime && ` · updated ${buildTime}`}
+  </p>
+</footer>
+
+<style>
+  .site-footer {
+    padding-top: 48px;
+    padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+    text-align: center;
+  }
+
+  .footer-text {
+    font-size: 11px;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-tertiary);
+    margin: 0;
+  }
+</style>

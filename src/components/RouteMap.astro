@@ -27,9 +27,14 @@ const mapConfig = {
 };
 ---
 
-<section class="map-section" aria-label="Route map">
+<section class="map-section" aria-label="Interactive route map showing travel path through Japan, Vietnam, Cambodia, Laos, and Indonesia">
+  <p class="sr-only">Route: Tokyo, Kyoto, Osaka, Hiroshima, Sapporo, Hanoi, Hoi An, Ho Chi Minh City, Siem Reap, Phnom Penh, Luang Prabang, Vientiane, Bali, Yogyakarta, Jakarta</p>
   <div class="map-wrap">
-    <div id="route-map" class="map"></div>
+    <div id="route-map" class="map">
+      <div class="map-loading" id="map-loading">
+        <span class="label">Loading map…</span>
+      </div>
+    </div>
     <script
       type="application/json"
       id="route-map-config"
@@ -66,8 +71,6 @@ const mapConfig = {
   </div>
 </section>
 
-<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.css" />
-
 <style>
   .map-section {
     margin-top: 32px;
@@ -86,6 +89,17 @@ const mapConfig = {
     height: 55vw;
     max-height: 600px;
     min-height: 280px;
+  }
+
+  .map-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 
   @media (min-width: 640px) {
@@ -108,12 +122,21 @@ const mapConfig = {
     min-height: 0;
   }
 
+  :global(.map-wrap.is-fullscreen) .map-toggle {
+    width: 40px;
+    height: 40px;
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    right: calc(16px + env(safe-area-inset-right, 0px));
+  }
+
   .map-toggle {
     position: absolute;
     top: 10px;
     right: 10px;
     width: 32px;
     height: 32px;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    right: calc(10px + env(safe-area-inset-right, 0px));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -243,10 +266,19 @@ const mapConfig = {
 
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
-    // Compute bounds from all point features
-    const points = routeData.features.filter(
-      (f) => f.geometry.type === 'Point'
+    // Separate departure stop from trip points
+    const departurePoint = routeData.features.find(
+      (f) => f.geometry.type === 'Point' && f.properties.departure
     );
+    const points = routeData.features.filter(
+      (f) => f.geometry.type === 'Point' && !f.properties.departure
+    );
+
+    // Find the named LineString features
+    const routeFeatureByName = (name) =>
+      routeData.features.find(
+        (f) => f.geometry.type === 'LineString' && f.properties.name === name
+      );
     const allBounds = new mapboxgl.LngLatBounds();
     points.forEach((p) => allBounds.extend(p.geometry.coordinates));
 
@@ -300,10 +332,68 @@ const mapConfig = {
         /* style overrides are best-effort */
       }
 
+      // Departure flight path (SF → Tokyo).
+      // Visited (currentDay > 0): solid sand, same as route-visited.
+      // Pre-trip (currentDay === 0): dashed gray, same as route-full.
+      const departureFlight = routeFeatureByName('departure-flight');
+      const flightIsVisited = currentDay > 0;
+      if (departureFlight) {
+        map.addSource('departure-flight', { type: 'geojson', data: departureFlight });
+        map.addLayer({
+          id: 'departure-flight',
+          type: 'line',
+          source: 'departure-flight',
+          paint: flightIsVisited
+            ? { 'line-color': '#B8A88A', 'line-width': 2, 'line-dasharray': [0.001, 5000] }
+            : { 'line-color': '#505258', 'line-width': 1.8, 'line-dasharray': [3, 3] },
+        });
+
+        // Animate draw-on if visited
+        if (flightIsVisited) {
+          const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          if (!prefersReduced) {
+            const DASH_MAX = 5000;
+            const DURATION = 3000;
+            const startTime = performance.now();
+            function animateFlight(now: number) {
+              const t = Math.min((now - startTime) / DURATION, 1);
+              const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+              const drawn = Math.max(DASH_MAX * ease, 0.001);
+              const gap = Math.max(DASH_MAX - drawn, 0.001);
+              try { map.setPaintProperty('departure-flight', 'line-dasharray', [drawn, gap]); } catch (_) {}
+              if (t < 1) requestAnimationFrame(animateFlight);
+            }
+            requestAnimationFrame(animateFlight);
+          } else {
+            try { map.setPaintProperty('departure-flight', 'line-dasharray', [5000, 0]); } catch (_) {}
+          }
+        }
+      }
+
+      // Departure city dot + label — visited style when flight is covered
+      if (departurePoint) {
+        map.addSource('stop-departure', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [departurePoint] },
+        });
+        map.addLayer({
+          id: 'stop-departure',
+          type: 'circle',
+          source: 'stop-departure',
+          paint: flightIsVisited
+            ? { 'circle-radius': 4, 'circle-color': '#B8A88A', 'circle-opacity': 0.75 }
+            : { 'circle-radius': 4, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#505258', 'circle-stroke-width': 1.4 },
+        });
+        const depLabel = document.createElement('span');
+        depLabel.className = 'map-city-label';
+        depLabel.textContent = departurePoint.properties.city;
+        new mapboxgl.Marker({ element: depLabel, anchor: 'left', offset: [8, 0] })
+          .setLngLat(departurePoint.geometry.coordinates)
+          .addTo(map);
+      }
+
       // Split route into visited (up to current) and future
-      const routeFeature = routeData.features.find(
-        (f) => f.geometry.type === 'LineString'
-      );
+      const routeFeature = routeFeatureByName('route');
       const visited = points.filter((p) => p.properties.day <= currentDay);
       const future = points.filter((p) => p.properties.day > currentDay);
 
@@ -346,8 +436,28 @@ const mapConfig = {
             paint: {
               'line-color': '#B8A88A',
               'line-width': 2,
+              'line-dasharray': [0.001, 5000],
             },
           });
+
+          // Draw-on animation: animate dasharray from hidden to full over 3s
+          const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          if (!prefersReduced) {
+            const DASH_MAX = 5000;
+            const DURATION = 3000;
+            const startTime = performance.now();
+            function animateRoute(now: number) {
+              const t = Math.min((now - startTime) / DURATION, 1);
+              const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+              const drawn = Math.max(DASH_MAX * ease, 0.001);
+              const gap = Math.max(DASH_MAX - drawn, 0.001);
+              try { map.setPaintProperty('route-visited', 'line-dasharray', [drawn, gap]); } catch (_) {}
+              if (t < 1) requestAnimationFrame(animateRoute);
+            }
+            requestAnimationFrame(animateRoute);
+          } else {
+            try { map.setPaintProperty('route-visited', 'line-dasharray', [5000, 0]); } catch (_) {}
+          }
         }
       }
 
@@ -428,6 +538,11 @@ const mapConfig = {
       });
     };
 
+    // Remove loading placeholder once map is ready
+    map.once('load', () => {
+      document.getElementById('map-loading')?.remove();
+    });
+
     // Fire on load, or immediately if already loaded (race condition guard)
     if (map.isStyleLoaded()) {
       onLoad();
@@ -446,6 +561,7 @@ const mapConfig = {
     const setFullscreen = (on) => {
       isFullscreen = on;
       if (wrapEl) wrapEl.classList.toggle('is-fullscreen', on);
+      document.body.style.overflow = on ? 'hidden' : '';
       if (toggle) {
         toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
         toggle.setAttribute('aria-label', on ? 'Close fullscreen' : 'Expand map');

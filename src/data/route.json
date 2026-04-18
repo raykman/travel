@@ -3,6 +3,11 @@
   "features": [
     {
       "type": "Feature",
+      "properties": { "city": "San Francisco", "country": "departure", "day": 0, "departure": true },
+      "geometry": { "type": "Point", "coordinates": [-122.4194, 37.7749] }
+    },
+    {
+      "type": "Feature",
       "properties": { "city": "Tokyo", "country": "japan", "day": 1 },
       "geometry": { "type": "Point", "coordinates": [139.6503, 35.6762] }
     },
@@ -80,6 +85,30 @@
       "type": "Feature",
       "properties": { "city": "Pangkalan Bun", "country": "indonesia", "day": 70 },
       "geometry": { "type": "Point", "coordinates": [111.6181, -2.6816] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "departure-flight" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-122.4194, 37.7749],
+          [-128.5,   39.8],
+          [-135.0,   43.0],
+          [-141.5,   46.5],
+          [-148.5,   50.0],
+          [-156.0,   52.8],
+          [-164.0,   54.5],
+          [-172.5,   55.0],
+          [-181.0,   54.2],
+          [-189.5,   52.0],
+          [-197.5,   48.5],
+          [-204.5,   44.5],
+          [-210.5,   40.8],
+          [-215.5,   37.8],
+          [-220.35,  35.68]
+        ]
+      }
     },
     {
       "type": "Feature",

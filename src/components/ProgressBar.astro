@@ -93,6 +93,12 @@ const segments = countries.map((c) => {
     opacity: 0.85;
   }
 
+  @media (max-width: 380px) {
+    .progress-labels {
+      display: none;
+    }
+  }
+
   @media (min-width: 640px) {
     .country-label {
       font-size: 10px;

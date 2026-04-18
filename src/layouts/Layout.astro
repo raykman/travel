@@ -8,7 +8,7 @@ interface Props {
 
 const {
   title = 'Where Is Ray',
-  description = 'Following a 62-day trip through Southeast Asia',
+  description = 'Following a 79-day trip through Asia',
 } = Astro.props;
 ---
 
@@ -34,21 +34,29 @@ const {
     <!-- OG tags -->
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image" content="https://whereisray.com/og-image.png" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://whereisray.com" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content="/og-image.png" />
+    <meta name="twitter:image" content="https://whereisray.com/og-image.png" />
 
     <!-- Fonts: Plus Jakarta Sans (300, 400, 500) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500&display=swap"
+    />
+    <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500&display=swap"
       rel="stylesheet"
     />
+
+    <!-- Mapbox GL CSS (loaded here to avoid flash of unstyled map) -->
+    <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.8.0/mapbox-gl.css" />
   </head>
   <body>
     <slot />

@@ -16,13 +16,15 @@ const withImages: Post[] = posts.filter((p) => p.data.images.length > 0);
     <p class="feed-empty text-tertiary">No entries yet.</p>
   ) : (
     <div class="feed-list">
-      {withImages.map((post) => (
+      {withImages.map((post, i) => (
         <PhotoCard
           day={post.data.day}
           location={post.data.location}
           title={post.data.title}
           caption={post.body.trim()}
           images={post.data.images}
+          index={i}
+          country={post.data.country}
         />
       ))}
     </div>
