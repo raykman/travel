@@ -30,7 +30,7 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
   style={cardStyle}
   {...lngLat ? { 'data-lnglat': lngLat } : {}}
 >
-  <!-- Full-bleed image area — breaks out of any container -->
+  <!-- Image area — contained within the glass panel -->
   <div class="card-media">
     {
       isMulti ? (
@@ -47,6 +47,8 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
               <div
                 class="scroller-slide"
                 data-index={i}
+                data-src={img.url}
+                data-alt={img.alt}
                 role="group"
                 aria-roledescription="slide"
                 aria-label={`Image ${i + 1} of ${images.length}`}
@@ -70,10 +72,27 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
               <path d="M1 1l6 5.5-6 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
+          <!-- Expand current slide to lightbox -->
+          <button class="img-expand-btn" data-expand-carousel aria-label="View fullscreen">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </div>
       ) : (
         <div class="single">
           <img src={images[0].url} alt={images[0].alt} loading="lazy" decoding="async" />
+          <!-- Expand to lightbox -->
+          <button
+            class="img-expand-btn"
+            data-lightbox-src={images[0].url}
+            data-lightbox-alt={images[0].alt}
+            aria-label="View fullscreen"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </div>
       )
     }
@@ -102,36 +121,39 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
     flex-direction: column;
   }
 
-  /* ---- Full-bleed media ---- */
+  /* ---- Media: contained within the glass panel ---- */
   .card-media {
-    /* Break out of any parent max-width container */
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
+    width: 100%;
+    position: relative;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--glass-radius) var(--glass-radius) 0 0;
+    overflow: hidden;
+  }
+
+  .single,
+  .scroller {
+    position: relative;
   }
 
   .single img,
   .scroller-slide img {
     width: 100%;
-    /* Tall portrait-ish ratio on mobile, capped on desktop */
-    height: clamp(280px, 65vw, 560px);
-    object-fit: cover;
+    /* Show the full image without cropping */
+    height: auto;
+    max-height: 320px;
+    object-fit: contain;
     display: block;
-    background: var(--surface);
+    background: rgba(0, 0, 0, 0.4);
   }
 
-  /* ---- Caption glass panel ---- */
+  /* ---- Caption panel ---- */
   .card-caption-panel {
     border-radius: 0 0 var(--glass-radius) var(--glass-radius);
-    padding: 20px var(--content-pad) 28px;
+    padding: 16px 20px 20px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    /* Constrain caption text width for readability while staying full-width visually */
-    max-width: min(640px, 100%);
-    margin: 0 auto;
-    width: 100%;
-    box-sizing: border-box;
-    border-top: none;
+    gap: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
   }
 
   /* ---- Metadata row ---- */
@@ -203,9 +225,40 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
     scroll-snap-align: center;
   }
 
+  /* ---- Expand to lightbox button ---- */
+  .img-expand-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(16, 16, 15, 0.60);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.75);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 150ms ease, background 150ms ease;
+    z-index: 3;
+  }
+
+  .card-media:hover .img-expand-btn {
+    opacity: 1;
+  }
+
+  .img-expand-btn:hover {
+    background: rgba(30, 30, 28, 0.85);
+    color: #fff;
+  }
+
   .dots {
     position: absolute;
-    bottom: 12px;
+    bottom: 8px;
     left: 0;
     right: 0;
     display: flex;
@@ -278,6 +331,30 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
     } else {
       cards.forEach((c) => c.classList.add('is-visible'));
     }
+
+    // ---- Image expand → lightbox ----
+    // Single images: button has data-lightbox-src directly.
+    // Carousel: button reads the currently active slide's data-src.
+    document.querySelectorAll<HTMLElement>('[data-lightbox-src]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.dispatchEvent(new CustomEvent('lightbox:open', {
+          detail: { src: btn.dataset.lightboxSrc, alt: btn.dataset.lightboxAlt || '' },
+        }));
+      });
+    });
+
+    document.querySelectorAll<HTMLElement>('[data-expand-carousel]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const track = btn.closest('[data-scroller]')?.querySelector<HTMLElement>('[data-track]');
+        if (!track) return;
+        const idx = Math.round(track.scrollLeft / track.clientWidth);
+        const slide = track.querySelector<HTMLElement>(`[data-index="${idx}"]`);
+        if (!slide) return;
+        document.dispatchEvent(new CustomEvent('lightbox:open', {
+          detail: { src: slide.dataset.src, alt: slide.dataset.alt || '' },
+        }));
+      });
+    });
 
     // ---- Scroller dot sync + button nav ----
     const scrollers = document.querySelectorAll<HTMLElement>('[data-scroller]');

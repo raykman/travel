@@ -37,6 +37,9 @@
   --glass-blur: blur(20px) saturate(160%);
   --glass-border: rgba(255, 255, 255, 0.075);
   --glass-radius: 16px;
+
+  /* Sidebar */
+  --sidebar-w: 380px;
 }
 
 /* ---------- Reset & base ---------- */

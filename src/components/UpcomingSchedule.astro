@@ -1,26 +1,48 @@
 ---
 import { getUpcoming, type UpcomingEntry } from '../lib/notion';
+import routeData from '../data/route.json';
 
 const items: UpcomingEntry[] = await getUpcoming();
+
+// Look up the nearest route stop coordinate for a given day (returns "lng,lat" or null)
+function lngLatForDay(day: number): string | null {
+  const points = routeData.features.filter(
+    (f: any) => f.geometry.type === 'Point' && !f.properties.departure
+  );
+  if (!points.length) return null;
+  const sorted = [...points].sort(
+    (a: any, b: any) => Math.abs(a.properties.day - day) - Math.abs(b.properties.day - day)
+  );
+  const [lng, lat] = (sorted[0] as any).geometry.coordinates;
+  return `${lng},${lat}`;
+}
 ---
 
 {
   items.length > 0 && (
     <section class="upcoming glass" aria-labelledby="upcoming-heading">
-      <h2 id="upcoming-heading" class="label-lg upcoming-heading">Coming up</h2>
+      <h2 id="upcoming-heading" class="upcoming-heading">Coming up</h2>
       <ul class="upcoming-list">
         {items.map((item) => (
-          <li class="upcoming-item">
-            <div class="upcoming-day">
-              <span class="label">Day {item.day}</span>
-              <span class="upcoming-date text-tertiary">{item.dateLabel}</span>
+          <li
+            class="upcoming-item"
+            data-lnglat={lngLatForDay(item.day)}
+            data-upcoming-day={item.day}
+            role="button"
+            tabindex="0"
+            title="Click to fly map to this location"
+          >
+            <div class="upcoming-day-col">
+              <span class="upcoming-day-label">Day {item.day}</span>
+              <span class="upcoming-date">{item.dateLabel}</span>
             </div>
             <div class="upcoming-body">
               <p class="upcoming-title">{item.title}</p>
               {item.subtitle && (
-                <p class="upcoming-subtitle text-secondary">{item.subtitle}</p>
+                <p class="upcoming-subtitle">{item.subtitle}</p>
               )}
             </div>
+            <span class="upcoming-fly-icon" aria-hidden="true">›</span>
           </li>
         ))}
       </ul>
@@ -30,11 +52,11 @@ const items: UpcomingEntry[] = await getUpcoming();
 
 <style>
   .upcoming {
-    padding: 24px;
+    padding: 20px;
   }
 
   .upcoming-heading {
-    margin: 0 0 20px;
+    margin: 0 0 16px;
     display: block;
     font-size: 10px;
     font-weight: 500;
@@ -49,44 +71,143 @@ const items: UpcomingEntry[] = await getUpcoming();
     margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 2px;
   }
 
   .upcoming-item {
     display: grid;
-    grid-template-columns: 80px 1fr;
-    gap: 16px;
-    align-items: baseline;
+    grid-template-columns: 72px 1fr 16px;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 150ms ease;
+    outline: none;
   }
 
-  .upcoming-day {
+  .upcoming-item:hover,
+  .upcoming-item:focus-visible {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  /* Highlighted by city hover on the map */
+  .upcoming-item.is-highlighted {
+    background: rgba(184, 168, 138, 0.12);
+    outline: 1px solid rgba(184, 168, 138, 0.25);
+  }
+
+  .upcoming-day-col {
     display: flex;
     flex-direction: column;
     gap: 2px;
   }
 
+  .upcoming-day-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+  }
+
   .upcoming-date {
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: 0.04em;
+    color: var(--text-tertiary);
   }
 
   .upcoming-body {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
   }
 
   .upcoming-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     margin: 0;
     color: var(--text);
+    line-height: 1.3;
   }
 
   .upcoming-subtitle {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 300;
     margin: 0;
-    line-height: 1.5;
+    color: var(--text-secondary);
+    line-height: 1.4;
+  }
+
+  .upcoming-fly-icon {
+    font-size: 16px;
+    color: var(--text-tertiary);
+    opacity: 0;
+    transition: opacity 150ms ease;
+    justify-self: end;
+  }
+
+  .upcoming-item:hover .upcoming-fly-icon,
+  .upcoming-item.is-highlighted .upcoming-fly-icon {
+    opacity: 1;
   }
 </style>
+
+<script>
+  (function () {
+    const items = document.querySelectorAll<HTMLElement>('.upcoming-item[data-lnglat]');
+
+    // ---- Click upcoming item → fly map to location ----
+    function flyToItem(el: HTMLElement) {
+      const raw = el.dataset.lnglat;
+      if (!raw) return;
+      const [lngStr, latStr] = raw.split(',');
+      const center: [number, number] = [parseFloat(lngStr), parseFloat(latStr)];
+      if (isNaN(center[0]) || isNaN(center[1])) return;
+
+      const map = (window as any).__map;
+      if (!map) return;
+      map.flyTo({ center, zoom: 10, duration: 1800, essential: true, curve: 1.4 });
+    }
+
+    items.forEach((el) => {
+      el.addEventListener('click', () => flyToItem(el));
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flyToItem(el); }
+      });
+    });
+
+    // ---- City hover on map → highlight matching upcoming item ----
+    // Matches on the nearest day: the route point's day vs upcoming item's day.
+    document.addEventListener('cityhover', (e: any) => {
+      const { day } = e.detail;
+
+      items.forEach((el) => el.classList.remove('is-highlighted'));
+
+      if (day == null) return;
+
+      // Find the upcoming item whose day is nearest to the hovered city's day
+      let best: HTMLElement | null = null;
+      let bestDiff = Infinity;
+      items.forEach((el) => {
+        const elDay = parseInt(el.dataset.upcomingDay || '0', 10);
+        const diff = Math.abs(elDay - day);
+        if (diff < bestDiff) { bestDiff = diff; best = el; }
+      });
+
+      // Only highlight if reasonably close (within 5 days — avoids false matches)
+      if (best && bestDiff <= 5) {
+        best.classList.add('is-highlighted');
+        // Scroll the sidebar so the highlighted item is visible
+        const sidebar = document.querySelector<HTMLElement>('.scroll-layer');
+        if (sidebar) {
+          const itemRect = (best as HTMLElement).getBoundingClientRect();
+          const sidebarRect = sidebar.getBoundingClientRect();
+          if (itemRect.bottom > sidebarRect.bottom || itemRect.top < sidebarRect.top) {
+            (best as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+      }
+    });
+  })();
+</script>

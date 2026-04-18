@@ -50,20 +50,43 @@ const mapConfig = {
   />
 </div>
 
-<!-- Reset-view button — position: fixed, z: 20, above the scroll-layer -->
-<button
-  id="map-reset"
-  class="map-reset"
-  type="button"
-  aria-label="Reset map to show full route"
-  title="Reset view"
->
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-    <!-- Circular arrow (reset / refresh icon) -->
-    <path d="M12.5 2.5 A6 6 0 1 0 13 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/>
-    <path d="M10 0.5 L13 2.5 L10.5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  </svg>
-</button>
+<!-- Map control buttons — position: fixed, z: 20, right side of viewport -->
+<div class="map-controls">
+  <!-- Reset view: fly to full route -->
+  <button
+    id="map-reset"
+    class="map-ctrl-btn"
+    type="button"
+    aria-label="Reset map to show full route"
+    title="Reset view"
+  >
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path d="M12.5 2.5 A6 6 0 1 0 13 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+      <path d="M10 0.5 L13 2.5 L10.5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+  </button>
+
+  <!-- Interaction toggle: lock / unlock map drag & zoom -->
+  <button
+    id="map-interact-toggle"
+    class="map-ctrl-btn"
+    type="button"
+    aria-pressed="false"
+    aria-label="Enable map interaction"
+    title="Enable map interaction (off by default)"
+  >
+    <!-- Lock icon (default: interaction off) -->
+    <svg class="icon-locked" width="13" height="14" viewBox="0 0 13 14" fill="none" aria-hidden="true">
+      <rect x="1" y="6" width="11" height="8" rx="2" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M3.5 6V4a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>
+    <!-- Unlock icon (interaction on) -->
+    <svg class="icon-unlocked" width="13" height="14" viewBox="0 0 13 14" fill="none" aria-hidden="true">
+      <rect x="1" y="6" width="11" height="8" rx="2" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M3.5 6V4a3 3 0 0 1 6 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>
+  </button>
+</div>
 
 <style>
   /* ---- Base layer: fixed full-viewport map ---- */
@@ -83,11 +106,19 @@ const mapConfig = {
     height: 100%;
   }
 
-  /* ---- Reset-view button ---- */
-  .map-reset {
+  /* ---- Map control button group ---- */
+  .map-controls {
     position: fixed;
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px)); /* above back-to-top */
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
     right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: auto; /* override parent's none */
+    z-index: 20;
+  }
+
+  .map-ctrl-btn {
     width: 36px;
     height: 36px;
     display: flex;
@@ -99,17 +130,25 @@ const mapConfig = {
     border: 1px solid rgba(255, 255, 255, 0.10);
     border-radius: 50%;
     color: var(--text-secondary);
-    /* Needs pointer-events: auto to receive clicks despite parent's none */
-    pointer-events: auto;
-    transition: color 150ms ease, background 150ms ease;
-    z-index: 20;
     cursor: pointer;
+    transition: color 150ms ease, background 150ms ease;
   }
 
-  .map-reset:hover {
+  .map-ctrl-btn:hover {
     color: var(--text);
     background: rgba(35, 35, 35, 0.88);
   }
+
+  /* Interaction toggle: accent color when active (unlocked) */
+  .map-ctrl-btn[aria-pressed='true'] {
+    color: var(--accent);
+    border-color: rgba(184, 168, 138, 0.30);
+  }
+
+  /* Swap lock/unlock icons */
+  .icon-unlocked { display: none; }
+  .map-ctrl-btn[aria-pressed='true'] .icon-locked   { display: none; }
+  .map-ctrl-btn[aria-pressed='true'] .icon-unlocked { display: block; }
 
   /* ---- Map city labels (HTML Markers) ---- */
   :global(.map-city-label) {
@@ -119,11 +158,19 @@ const mapConfig = {
     letter-spacing: 0.08em;
     text-transform: uppercase;
     white-space: nowrap;
-    pointer-events: none;
+    /* pointer-events: auto so hover highlights the matching upcoming item */
+    pointer-events: auto;
+    cursor: default;
     color: var(--text-tertiary);
     text-shadow:
       0 0 3px rgba(16, 16, 15, 0.95),
       0 0 10px rgba(16, 16, 15, 0.8);
+    transition: color 150ms ease;
+  }
+
+  :global(.map-city-label:hover),
+  :global(.map-city-label.is-hover-active) {
+    color: var(--text) !important;
   }
 
   :global(.map-city-label.visited) {
@@ -174,6 +221,7 @@ const mapConfig = {
   (async function () {
     const mapEl = document.getElementById('route-map');
     const resetBtn = document.getElementById('map-reset');
+    const interactToggle = document.getElementById('map-interact-toggle');
     const configEl = document.getElementById('route-map-config');
     if (!mapEl || !configEl) return;
 
@@ -392,17 +440,28 @@ const mapConfig = {
       }
 
       // ---- City name labels ----
+      // pointer-events: auto (see CSS) so hovering dispatches 'cityhover'
+      // to highlight the matching upcoming item in the sidebar.
       points.forEach((p: any) => {
         const city = p.properties?.city;
         if (!city) return;
         const day = p.properties.day;
         const label = document.createElement('span');
         label.className = 'map-city-label';
+        label.dataset.day = String(day);
         if (typeof day === 'number') {
           if (day < currentDay) label.classList.add('visited');
           else if (day === currentDay) label.classList.add('current');
         }
         label.textContent = city;
+
+        label.addEventListener('mouseenter', () => {
+          document.dispatchEvent(new CustomEvent('cityhover', { detail: { day } }));
+        });
+        label.addEventListener('mouseleave', () => {
+          document.dispatchEvent(new CustomEvent('cityhover', { detail: { day: null } }));
+        });
+
         new mapboxgl.Marker({ element: label, anchor: 'left', offset: [8, 0] })
           .setLngLat(p.geometry.coordinates)
           .addTo(map);
@@ -429,5 +488,35 @@ const mapConfig = {
         });
       }
     });
+
+    // ---- Map interaction toggle ----
+    // Default: interactive: false (map is driven by scrollytelling / flyTo).
+    // Toggle enables full drag/zoom for manual exploration.
+    let isInteractive = false;
+
+    function setMapInteractive(on: boolean) {
+      isInteractive = on;
+      const handlers = [
+        map.scrollZoom, map.dragPan, map.dragRotate,
+        map.touchZoomRotate, map.doubleClickZoom, map.keyboard,
+      ];
+      handlers.forEach((h) => { try { on ? h.enable() : h.disable(); } catch (_) {} });
+
+      interactToggle?.setAttribute('aria-pressed', String(on));
+      interactToggle?.setAttribute(
+        'aria-label', on ? 'Disable map interaction' : 'Enable map interaction'
+      );
+      interactToggle?.setAttribute(
+        'title', on ? 'Disable map interaction' : 'Enable map interaction (off by default)'
+      );
+
+      // When interaction is on, show a crosshair cursor on the map canvas
+      if (mapEl) mapEl.style.cursor = on ? 'grab' : '';
+    }
+
+    // Ensure all handlers start disabled (belt-and-suspenders for interactive: false)
+    setMapInteractive(false);
+
+    interactToggle?.addEventListener('click', () => setMapInteractive(!isInteractive));
   })();
 </script>

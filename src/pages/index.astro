@@ -50,17 +50,18 @@ const postStats = state === 'post' && posts.length > 0 ? {
   <PasswordGate />
 
   <!--
-    IMMERSIVE LAYOUT STRUCTURE
-    ═══════════════════════════
-    z-index stack (bottom → top):
-      0   .map-base          (RouteMap — position: fixed, full viewport)
-      10  .scroll-layer      (all visible content, scrolls over the map)
-      15  .site-header       (sticky glass bar at the top of scroll-layer)
-      20  #map-reset         (reset-view button in RouteMap)
-      20  #back-to-top       (back-to-top button)
-     100  #password-gate     (PasswordGate overlay)
+    IMMERSIVE LAYOUT — z-index stack
+    ══════════════════════════════════
+      0    .map-base           RouteMap — position: fixed, full viewport
+      10   .scroll-layer       Sidebar — position: fixed, left side
+      20   .map-controls       Reset + interaction toggle (in RouteMap)
+      20   #back-to-top
+      25   #sidebar-toggle     Sidebar open/close tab
+     100   #password-gate
+     300   #lightbox           Full-screen image (in Layout.astro)
 
-    Mobile scaffold → see global.css "Immersive layout scaffold" comment block.
+    Sidebar state managed via data-sidebar-collapsed on <body>.
+    See global.css "Immersive layout scaffold" for option B mobile pivot.
   -->
 
   <!-- Base layer: full-bleed fixed map -->
@@ -69,10 +70,10 @@ const postStats = state === 'post' && posts.length > 0 ? {
     currentDay={currentDay}
   />
 
-  <!-- Scrollable content layer — rides over the map -->
-  <div class="scroll-layer">
+  <!-- Left sidebar — scrollable glass panel column -->
+  <div class="scroll-layer" id="sidebar">
 
-    <!-- Sticky glass header -->
+    <!-- Sticky header inside sidebar -->
     <header class="site-header glass" aria-label="Site header">
       <h1 class="site-title">Where Is Ray</h1>
       <span class="header-meta">{headerLine}</span>
@@ -80,7 +81,7 @@ const postStats = state === 'post' && posts.length > 0 ? {
 
     {state === 'pre' ? (
       <!-- PRE-TRIP STATE -->
-      <div class="hero-zone">
+      <>
         <Countdown />
 
         <p class="intro-text">
@@ -88,7 +89,6 @@ const postStats = state === 'post' && posts.length > 0 ? {
           Check back once the trip starts for live updates.
         </p>
 
-        <!-- Country list with scrollytelling data-lnglat attributes -->
         <section class="countries-panel glass" aria-label="Itinerary">
           <ul class="country-list">
             {countries.map((c) => (
@@ -110,30 +110,27 @@ const postStats = state === 'post' && posts.length > 0 ? {
             ))}
           </ul>
         </section>
-      </div>
+      </>
     ) : (
       <!-- LIVE / POST-TRIP STATE -->
       <>
-        <div class="hero-zone">
-          <StatusHero
-            state={state}
-            city={latest?.data.location}
-            flag={latestCountry?.flag}
-            countryName={latestCountry?.name}
-          />
+        <StatusHero
+          state={state}
+          city={latest?.data.location}
+          flag={latestCountry?.flag}
+          countryName={latestCountry?.name}
+        />
 
-          {postStats && (
-            <p class="post-trip-stats glass">
-              {postStats.count} posts · {postStats.countryCount} countries · {postStats.cityCount} cities
-            </p>
-          )}
+        {postStats && (
+          <p class="post-trip-stats glass">
+            {postStats.count} posts · {postStats.countryCount} countries · {postStats.cityCount} cities
+          </p>
+        )}
 
-          <ProgressBar currentDay={currentDay} />
+        <ProgressBar currentDay={currentDay} />
 
-          {state === 'live' && <UpcomingSchedule />}
-        </div>
+        {state === 'live' && <UpcomingSchedule />}
 
-        <!-- Field notes feed — full-width, no container constraint -->
         <div class="feed-zone">
           <PhotoFeed posts={posts} />
         </div>
@@ -143,7 +140,22 @@ const postStats = state === 'post' && posts.length > 0 ? {
     <Footer buildTime={buildTime} />
   </div>
 
-  <!-- Fixed UI above scroll layer -->
+  <!-- Sidebar toggle tab — sits at the right edge of the sidebar -->
+  <button
+    id="sidebar-toggle"
+    class="sidebar-toggle"
+    aria-label="Hide sidebar"
+    title="Hide sidebar"
+  >
+    <svg class="icon-collapse" width="10" height="14" viewBox="0 0 10 14" fill="none" aria-hidden="true">
+      <path d="M8 1L2 7l6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <svg class="icon-expand" width="10" height="14" viewBox="0 0 10 14" fill="none" aria-hidden="true">
+      <path d="M2 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
+  <!-- Back to top (scrolls sidebar) -->
   <button id="back-to-top" class="back-to-top" aria-label="Back to top">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
       <path d="M7 12V2M2 7l5-5 5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -151,56 +163,79 @@ const postStats = state === 'post' && posts.length > 0 ? {
   </button>
 </Layout>
 
-<!-- ─── Scrollytelling ─────────────────────────────────────────────────────
-  Watches [data-lnglat] elements (photo cards + pre-trip country rows).
-  When an element reaches ~30% from the top of the viewport, flyTo its
-  coordinates on the background Mapbox map.
-
-  Zoom levels:
-    z9  — country-level view (pre-trip country rows)
-    z10 — city-level view   (field notes photo cards)
-
-  The observer starts after the 'mapready' event to avoid racing the
-  map initialization. If the map is already ready (fast connection),
-  it starts immediately.
-──────────────────────────────────────────────────────────────────────────── -->
+<!-- ─── Sidebar toggle ──────────────────────────────────────────────────────── -->
 <script>
-  // ---- Back-to-top ----
-  const btn = document.getElementById('back-to-top');
-  if (btn) {
-    window.addEventListener('scroll', () => {
-      const show = window.scrollY > window.innerHeight;
-      btn.style.opacity = show ? '1' : '0';
-      btn.style.pointerEvents = show ? 'auto' : 'none';
-    }, { passive: true });
-    btn.addEventListener('click', () => {
-      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      window.scrollTo({ top: 0, behavior: reducedMotion ? 'instant' : 'smooth' });
-    });
+  const sidebar = document.getElementById('sidebar');
+  const toggleBtn = document.getElementById('sidebar-toggle');
+
+  function setSidebarCollapsed(collapsed: boolean) {
+    document.body.dataset.sidebarCollapsed = collapsed ? 'true' : '';
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-label', collapsed ? 'Show sidebar' : 'Hide sidebar');
+      toggleBtn.setAttribute('title', collapsed ? 'Show sidebar' : 'Hide sidebar');
+    }
+    // Persist across page loads
+    try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch (_) {}
   }
 
-  // ---- Scrollytelling ----
+  // Restore from localStorage
+  try {
+    const saved = localStorage.getItem('sidebar-collapsed');
+    if (saved === '1') setSidebarCollapsed(true);
+  } catch (_) {}
+
+  toggleBtn?.addEventListener('click', () => {
+    const isCollapsed = document.body.dataset.sidebarCollapsed === 'true';
+    setSidebarCollapsed(!isCollapsed);
+  });
+</script>
+
+<!-- ─── Back to top (scrolls the sidebar) ──────────────────────────────────── -->
+<script>
+  const backBtn = document.getElementById('back-to-top');
+  const sidebarEl = document.getElementById('sidebar');
+
+  if (backBtn && sidebarEl) {
+    sidebarEl.addEventListener('scroll', () => {
+      const show = sidebarEl.scrollTop > sidebarEl.clientHeight;
+      backBtn.style.opacity = show ? '1' : '0';
+      backBtn.style.pointerEvents = show ? 'auto' : 'none';
+    }, { passive: true });
+
+    backBtn.addEventListener('click', () => {
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      sidebarEl.scrollTo({ top: 0, behavior: reducedMotion ? 'instant' : 'smooth' });
+    });
+  }
+</script>
+
+<!-- ─── Scrollytelling ────────────────────────────────────────────────────────
+  Watches [data-lnglat] elements inside the sidebar scroll container.
+  Photo cards fly to exact coordinates (zoom 10).
+  Pre-trip country rows fly to country capital (zoom 7).
+  Upcoming items are handled by UpcomingSchedule.astro (click-based).
+──────────────────────────────────────────────────────────────────────────── -->
+<script>
   function initScrollytelling() {
     const map = (window as any).__map;
-    if (!map) return;
+    const sidebar = document.getElementById('sidebar');
+    if (!map || !sidebar) return;
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-    // All elements that should trigger a map flyTo on scroll
-    const targets = document.querySelectorAll<HTMLElement>('[data-lnglat]');
+    // Gather targets: photo cards + country rows (NOT upcoming items — those are click-driven)
+    const targets = sidebar.querySelectorAll<HTMLElement>(
+      '.photo-card[data-lnglat], .country-row[data-lnglat]'
+    );
     if (!targets.length || prefersReduced) return;
 
-    // Debounce: only one flyTo per 800ms to avoid spamming the camera
     let flyTimeout: ReturnType<typeof setTimeout> | null = null;
     let lastLngLat = '';
 
     const observer = new IntersectionObserver(
       (entries) => {
-        // Find the entry that's most prominently in view
         const active = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-
         if (!active) return;
 
         const raw = (active.target as HTMLElement).dataset.lnglat;
@@ -211,24 +246,17 @@ const postStats = state === 'post' && posts.length > 0 ? {
         const center: [number, number] = [parseFloat(lngStr), parseFloat(latStr)];
         if (isNaN(center[0]) || isNaN(center[1])) return;
 
-        // Determine zoom: country rows get z9, photo cards get z10
         const isCountryRow = active.target.classList.contains('country-row');
         const zoom = isCountryRow ? 7 : 10;
 
         if (flyTimeout) clearTimeout(flyTimeout);
         flyTimeout = setTimeout(() => {
-          map.flyTo({
-            center,
-            zoom,
-            duration: prefersReduced ? 0 : 1800,
-            essential: true,
-            curve: 1.4,
-          });
-        }, 80); // small debounce to let scroll settle
+          map.flyTo({ center, zoom, duration: 1800, essential: true, curve: 1.4 });
+        }, 80);
       },
       {
-        // Trigger when element crosses 30% from the top of the viewport
-        rootMargin: '-30% 0px -40% 0px',
+        root: sidebar, // observe within sidebar scroll container
+        rootMargin: '-25% 0px -35% 0px',
         threshold: 0,
       }
     );
@@ -236,7 +264,6 @@ const postStats = state === 'post' && posts.length > 0 ? {
     targets.forEach((el) => observer.observe(el));
   }
 
-  // Start after map signals readiness, or immediately if already ready
   if ((window as any).__map) {
     initScrollytelling();
   } else {
@@ -245,13 +272,71 @@ const postStats = state === 'post' && posts.length > 0 ? {
 </script>
 
 <style>
-  /* ── Scroll layer ── */
+  /* ── Sidebar (scroll-layer) ── */
   .scroll-layer {
-    position: relative;
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: var(--sidebar-w);
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
     z-index: 10;
-    /* Enough top padding so the hero zone content clears the sticky header */
-    padding-top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.10) transparent;
+    /* Smooth slide transition */
+    transform: translateX(0);
+    transition: transform 350ms cubic-bezier(0.4, 0, 0.2, 1);
   }
+
+  /* Collapsed state — driven by body[data-sidebar-collapsed="true"] */
+  body[data-sidebar-collapsed='true'] .scroll-layer {
+    transform: translateX(-100%);
+  }
+
+  /* ── Sidebar toggle tab ── */
+  .sidebar-toggle {
+    position: fixed;
+    /* Sits at the right edge of the sidebar, vertically centered */
+    left: var(--sidebar-w);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(20, 20, 20, 0.72);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    z-index: 25;
+    transition: left 350ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms ease;
+  }
+
+  .sidebar-toggle:hover {
+    color: var(--text);
+  }
+
+  /* When collapsed, toggle moves to left edge of screen */
+  body[data-sidebar-collapsed='true'] .sidebar-toggle {
+    left: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 0 8px 8px 0;
+  }
+
+  /* Swap chevron direction */
+  .icon-expand { display: none; }
+  body[data-sidebar-collapsed='true'] .icon-collapse { display: none; }
+  body[data-sidebar-collapsed='true'] .icon-expand   { display: block; }
 
   /* ── Sticky glass header ── */
   .site-header {
@@ -261,16 +346,14 @@ const postStats = state === 'post' && posts.length > 0 ? {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px var(--content-pad);
-    border-radius: 0; /* full-width bar — no rounded top corners */
-    border-top: none;
-    border-left: none;
-    border-right: none;
+    padding: 14px 16px;
+    border-radius: var(--glass-radius);
     gap: 16px;
+    flex-shrink: 0;
   }
 
   .site-title {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 500;
     letter-spacing: -0.01em;
     margin: 0;
@@ -285,20 +368,6 @@ const postStats = state === 'post' && posts.length > 0 ? {
     white-space: nowrap;
   }
 
-  /* ── Hero zone: first-viewport glass panels ── */
-  .hero-zone {
-    min-height: calc(100svh - 52px); /* full viewport minus header height */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 16px;
-    padding: 32px var(--content-pad) 40px;
-    max-width: min(600px, 100%);
-    margin: 0 auto;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
   /* ── Pre-trip: intro text ── */
   .intro-text {
     font-size: 13px;
@@ -307,9 +376,10 @@ const postStats = state === 'post' && posts.length > 0 ? {
     color: var(--text-secondary);
     text-align: center;
     margin: 0;
+    padding: 0 8px;
   }
 
-  /* ── Pre-trip: country list panel ── */
+  /* ── Pre-trip: country list ── */
   .countries-panel {
     padding: 4px 0;
   }
@@ -322,36 +392,29 @@ const postStats = state === 'post' && posts.length > 0 ? {
 
   .country-row {
     display: grid;
-    grid-template-columns: 28px 1fr auto;
-    gap: 14px;
+    grid-template-columns: 24px 1fr auto;
+    gap: 12px;
     align-items: center;
-    padding: 14px 20px;
+    padding: 12px 16px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     cursor: default;
     transition: background 200ms ease;
   }
 
-  .country-row:last-child {
-    border-bottom: none;
-  }
+  .country-row:last-child { border-bottom: none; }
 
-  .country-row:hover {
-    background: rgba(255, 255, 255, 0.03);
-  }
+  .country-row:hover { background: rgba(255, 255, 255, 0.03); }
 
-  .country-flag {
-    font-size: 18px;
-    line-height: 1;
-  }
+  .country-flag { font-size: 16px; line-height: 1; }
 
   .country-name {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 500;
     letter-spacing: -0.01em;
   }
 
   .country-dates {
-    font-size: 10px;
+    font-size: 9px;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--text-tertiary);
@@ -360,28 +423,29 @@ const postStats = state === 'post' && posts.length > 0 ? {
   /* ── Post-trip stats ── */
   .post-trip-stats {
     text-align: center;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: var(--text-secondary);
     margin: 0;
-    padding: 12px 20px;
-    border-radius: 999px; /* pill */
+    padding: 10px 16px;
+    border-radius: 999px;
     align-self: center;
   }
 
-  /* ── Field notes zone ── */
+  /* ── Field notes feed ── */
   .feed-zone {
-    /* Subtle top gap so the hero zone has clear visual separation */
-    padding-top: 48px;
+    display: flex;
+    flex-direction: column;
   }
 
-  /* ── Back-to-top ── */
+  /* ── Back to top ── */
   .back-to-top {
     position: fixed;
     bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-    right: 20px;
+    /* Left of the map controls (which are at right: 20px) */
+    right: 64px;
     width: 36px;
     height: 36px;
     display: flex;
@@ -397,9 +461,8 @@ const postStats = state === 'post' && posts.length > 0 ? {
     pointer-events: none;
     transition: opacity 200ms ease, color 150ms ease;
     z-index: 20;
+    cursor: pointer;
   }
 
-  .back-to-top:hover {
-    color: var(--text);
-  }
+  .back-to-top:hover { color: var(--text); }
 </style>
