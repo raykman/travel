@@ -11,13 +11,13 @@ const startLabel = TRIP_START.toLocaleDateString('en-US', {
 });
 ---
 
-<section class="countdown container" aria-label="Countdown to trip">
+<section class="countdown glass" aria-label="Countdown to trip">
   <span class="label countdown-label">Departing in</span>
   <p class="countdown-number">
     {days}
     <span class="countdown-unit">{days === 1 ? 'day' : 'days'}</span>
   </p>
-  <span class="label countdown-date">{startLabel}</span>
+  <span class="countdown-date">{startLabel}</span>
 </section>
 
 <style>
@@ -25,18 +25,23 @@ const startLabel = TRIP_START.toLocaleDateString('en-US', {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
-    margin-top: 40px;
+    gap: 12px;
+    padding: 36px 32px;
     text-align: center;
   }
 
   .countdown-label {
     display: block;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
   }
 
   .countdown-number {
-    font-size: clamp(56px, 14vw, 88px);
-    font-weight: 500;
+    font-size: clamp(72px, 18vw, 120px);
+    font-weight: 600;
     letter-spacing: -0.04em;
     line-height: 1;
     margin: 0;
@@ -44,17 +49,20 @@ const startLabel = TRIP_START.toLocaleDateString('en-US', {
   }
 
   .countdown-unit {
-    font-size: 0.28em;
+    font-size: 0.22em;
     font-weight: 400;
     color: var(--text-tertiary);
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
-    margin-left: 12px;
+    margin-left: 10px;
     vertical-align: middle;
   }
 
   .countdown-date {
     display: block;
-    color: var(--text-tertiary);
+    font-size: 12px;
+    font-weight: 300;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
   }
 </style>

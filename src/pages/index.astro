@@ -20,9 +20,8 @@ import countries from '../data/countries.json';
 const state = getTripState();
 const currentDay = state === 'pre' ? 0 : getCurrentDay();
 
-// Latest post → drives status hero & current location on map
 const posts = await getAllPosts();
-const latest = posts[0]; // already sorted newest-first
+const latest = posts[0];
 
 const latestCountry = latest
   ? countries.find((c) => c.id === latest.data.country)
@@ -45,47 +44,69 @@ const postStats = state === 'post' && posts.length > 0 ? {
   countryCount: new Set(posts.map((p) => p.data.country)).size,
   cityCount: new Set(posts.map((p) => p.data.location)).size,
 } : null;
-
 ---
 
 <Layout>
   <PasswordGate />
 
-  <header class="site-header container">
-    <h1 class="site-title">Where Is Ray</h1>
-    <span class="label header-meta">{headerLine}</span>
-  </header>
+  <!--
+    IMMERSIVE LAYOUT — z-index stack
+    ══════════════════════════════════
+      0    .map-base           RouteMap — position: fixed, full viewport
+      10   .scroll-layer       Sidebar — position: fixed, left side
+      20   .map-controls       Reset + interaction toggle (in RouteMap)
+      20   #back-to-top
+      25   #sidebar-toggle     Sidebar open/close tab
+     100   #password-gate
+     300   #lightbox           Full-screen image (in Layout.astro)
 
-  {
-    state === 'pre' ? (
+    Sidebar state managed via data-sidebar-collapsed on <body>.
+    See global.css "Immersive layout scaffold" for option B mobile pivot.
+  -->
+
+  <!-- Base layer: full-bleed fixed map -->
+  <RouteMap
+    currentCoordinates={state === 'pre' ? [37.7749, -122.4194] : (latest?.data.coordinates ?? null)}
+    currentDay={currentDay}
+  />
+
+  <!-- Left sidebar — scrollable glass panel column -->
+  <div class="scroll-layer" id="sidebar">
+
+    <!-- Sticky header inside sidebar -->
+    <header class="site-header glass" aria-label="Site header">
+      <h1 class="site-title">Where Is Ray</h1>
+      <span class="header-meta">{headerLine}</span>
+    </header>
+
+    {state === 'pre' ? (
+      <!-- PRE-TRIP STATE -->
       <>
         <Countdown />
-        <p class="intro-text container">
+
+        <p class="intro-text">
           Japan, Vietnam, Cambodia, Laos, and Indonesia.<br />
           Check back once the trip starts for live updates.
         </p>
-        <RouteMap currentCoordinates={null} currentDay={0} />
-        <section class="countries container section" aria-label="Itinerary">
+
+        <section class="countries-panel glass" aria-label="Itinerary">
           <ul class="country-list">
             {countries.map((c) => (
-              <li class="country-row">
-                <span class="country-flag" aria-hidden="true">
-                  {c.flag}
-                </span>
-                <span class="country-name" style={`color: ${c.color};`}>
-                  {c.name}
-                </span>
-                <span class="country-dates text-tertiary">
+              <li
+                class="country-row"
+                data-lnglat={`${c.center[0]},${c.center[1]}`}
+                role="button"
+                tabindex="0"
+                title={`Fly to ${c.name}`}
+              >
+                <span class="country-flag" aria-hidden="true">{c.flag}</span>
+                <span class="country-name" style={`color: ${c.color};`}>{c.name}</span>
+                <span class="country-dates">
                   {new Date(c.startDate).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    timeZone: 'UTC',
-                  })}{' '}
-                  –{' '}
+                    month: 'short', day: 'numeric', timeZone: 'UTC',
+                  })}{' – '}
                   {new Date(c.endDate).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    timeZone: 'UTC',
+                    month: 'short', day: 'numeric', timeZone: 'UTC',
                   })}
                 </span>
               </li>
@@ -94,6 +115,7 @@ const postStats = state === 'post' && posts.length > 0 ? {
         </section>
       </>
     ) : (
+      <!-- LIVE / POST-TRIP STATE -->
       <>
         <StatusHero
           state={state}
@@ -101,25 +123,42 @@ const postStats = state === 'post' && posts.length > 0 ? {
           flag={latestCountry?.flag}
           countryName={latestCountry?.name}
         />
+
         {postStats && (
-          <p class="post-trip-stats container label-lg">
+          <p class="post-trip-stats glass">
             {postStats.count} posts · {postStats.countryCount} countries · {postStats.cityCount} cities
           </p>
         )}
+
         <ProgressBar currentDay={currentDay} />
-        <RouteMap
-          currentCoordinates={latest?.data.coordinates ?? null}
-          currentDay={currentDay}
-        />
+
         {state === 'live' && <UpcomingSchedule />}
-        <hr class="divider" />
-        <PhotoFeed />
+
+        <div class="feed-zone">
+          <PhotoFeed posts={posts} />
+        </div>
       </>
-    )
-  }
+    )}
 
-  <Footer buildTime={buildTime} />
+    <Footer buildTime={buildTime} />
+  </div>
 
+  <!-- Sidebar toggle tab — sits at the right edge of the sidebar -->
+  <button
+    id="sidebar-toggle"
+    class="sidebar-toggle"
+    aria-label="Hide sidebar"
+    title="Hide sidebar"
+  >
+    <svg class="icon-collapse" width="10" height="14" viewBox="0 0 10 14" fill="none" aria-hidden="true">
+      <path d="M8 1L2 7l6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <svg class="icon-expand" width="10" height="14" viewBox="0 0 10 14" fill="none" aria-hidden="true">
+      <path d="M2 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
+  <!-- Back to top (scrolls sidebar) -->
   <button id="back-to-top" class="back-to-top" aria-label="Back to top">
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
       <path d="M7 12V2M2 7l5-5 5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -127,116 +166,337 @@ const postStats = state === 'post' && posts.length > 0 ? {
   </button>
 </Layout>
 
+<!-- ─── Sidebar toggle ──────────────────────────────────────────────────────── -->
 <script>
-  const btn = document.getElementById('back-to-top');
-  if (btn) {
-    window.addEventListener('scroll', () => {
-      const show = window.scrollY > window.innerHeight;
-      btn.style.opacity = show ? '1' : '0';
-      btn.style.pointerEvents = show ? 'auto' : 'none';
+  const sidebar = document.getElementById('sidebar');
+  const toggleBtn = document.getElementById('sidebar-toggle');
+
+  function setSidebarCollapsed(collapsed: boolean) {
+    document.body.dataset.sidebarCollapsed = collapsed ? 'true' : '';
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-label', collapsed ? 'Show sidebar' : 'Hide sidebar');
+      toggleBtn.setAttribute('title', collapsed ? 'Show sidebar' : 'Hide sidebar');
+    }
+    // Persist across page loads
+    try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch (_) {}
+  }
+
+  // Restore from localStorage
+  try {
+    const saved = localStorage.getItem('sidebar-collapsed');
+    if (saved === '1') setSidebarCollapsed(true);
+  } catch (_) {}
+
+  toggleBtn?.addEventListener('click', () => {
+    const isCollapsed = document.body.dataset.sidebarCollapsed === 'true';
+    setSidebarCollapsed(!isCollapsed);
+  });
+</script>
+
+<!-- ─── Back to top (scrolls the sidebar) ──────────────────────────────────── -->
+<script>
+  const backBtn = document.getElementById('back-to-top');
+  const sidebarEl = document.getElementById('sidebar');
+
+  if (backBtn && sidebarEl) {
+    sidebarEl.addEventListener('scroll', () => {
+      const show = sidebarEl.scrollTop > sidebarEl.clientHeight;
+      backBtn.style.opacity = show ? '1' : '0';
+      backBtn.style.pointerEvents = show ? 'auto' : 'none';
     }, { passive: true });
-    btn.addEventListener('click', () => {
+
+    backBtn.addEventListener('click', () => {
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      window.scrollTo({ top: 0, behavior: reducedMotion ? 'instant' : 'smooth' });
+      sidebarEl.scrollTo({ top: 0, behavior: reducedMotion ? 'instant' : 'smooth' });
     });
   }
 </script>
 
+<!-- ─── Scrollytelling ────────────────────────────────────────────────────────
+  Watches [data-lnglat] elements inside the sidebar scroll container.
+  Photo cards fly to exact coordinates (zoom 10).
+  Pre-trip country rows fly to country capital (zoom 7).
+  Upcoming items are handled by UpcomingSchedule.astro (click-based).
+──────────────────────────────────────────────────────────────────────────── -->
+<script>
+  function initScrollytelling() {
+    const map = (window as any).__map;
+    const sidebar = document.getElementById('sidebar');
+    if (!map || !sidebar) return;
+
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Gather targets: photo cards + country rows (NOT upcoming items — those are click-driven)
+    const targets = sidebar.querySelectorAll<HTMLElement>(
+      '.photo-card[data-lnglat], .country-row[data-lnglat]'
+    );
+    if (!targets.length || prefersReduced) return;
+
+    let flyTimeout: ReturnType<typeof setTimeout> | null = null;
+    let lastLngLat = '';
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const active = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (!active) return;
+
+        const raw = (active.target as HTMLElement).dataset.lnglat;
+        if (!raw || raw === lastLngLat) return;
+        lastLngLat = raw;
+
+        const [lngStr, latStr] = raw.split(',');
+        const center: [number, number] = [parseFloat(lngStr), parseFloat(latStr)];
+        if (isNaN(center[0]) || isNaN(center[1])) return;
+
+        const isCountryRow = active.target.classList.contains('country-row');
+        const zoom = isCountryRow ? 7 : 10;
+
+        if (flyTimeout) clearTimeout(flyTimeout);
+        flyTimeout = setTimeout(() => {
+          map.flyTo({ center, zoom, duration: 1800, essential: true, curve: 1.4 });
+        }, 80);
+      },
+      {
+        root: sidebar, // observe within sidebar scroll container
+        rootMargin: '-25% 0px -35% 0px',
+        threshold: 0,
+      }
+    );
+
+    targets.forEach((el) => observer.observe(el));
+  }
+
+  if ((window as any).__map) {
+    initScrollytelling();
+  } else {
+    document.addEventListener('mapready', initScrollytelling, { once: true });
+  }
+</script>
+
+<!-- ─── Pre-trip: click country row → fly map ───────────────────────────────── -->
+<script>
+  function initCountryClick() {
+    const map = (window as any).__map;
+    if (!map) return;
+
+    function flyToRow(el: HTMLElement) {
+      const raw = el.dataset.lnglat;
+      if (!raw) return;
+      const [lngStr, latStr] = raw.split(',');
+      const center: [number, number] = [parseFloat(lngStr), parseFloat(latStr)];
+      if (!isNaN(center[0]) && !isNaN(center[1])) {
+        map.flyTo({ center, zoom: 7, duration: 1800, essential: true, curve: 1.4 });
+      }
+    }
+
+    document.querySelectorAll<HTMLElement>('.country-row[data-lnglat]').forEach((el) => {
+      el.addEventListener('click', () => flyToRow(el));
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flyToRow(el); }
+      });
+    });
+  }
+
+  if ((window as any).__map) {
+    initCountryClick();
+  } else {
+    document.addEventListener('mapready', initCountryClick, { once: true });
+  }
+</script>
+
 <style>
+  /* ── Sidebar (scroll-layer) ── */
+  .scroll-layer {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: var(--sidebar-w);
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.10) transparent;
+    /* Smooth slide transition */
+    transform: translateX(0);
+    transition: transform 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Collapsed state — driven by body[data-sidebar-collapsed="true"] */
+  body[data-sidebar-collapsed='true'] .scroll-layer {
+    transform: translateX(-100%);
+  }
+
+  /* ── Sidebar toggle tab ── */
+  .sidebar-toggle {
+    position: fixed;
+    /* Sits at the right edge of the sidebar, vertically centered */
+    left: var(--sidebar-w);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(20, 20, 20, 0.72);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    z-index: 25;
+    transition: left 350ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms ease;
+  }
+
+  .sidebar-toggle:hover {
+    color: var(--text);
+  }
+
+  /* When collapsed, toggle moves to left edge of screen */
+  body[data-sidebar-collapsed='true'] .sidebar-toggle {
+    left: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 0 8px 8px 0;
+  }
+
+  /* Swap chevron direction */
+  .icon-expand { display: none; }
+  body[data-sidebar-collapsed='true'] .icon-collapse { display: none; }
+  body[data-sidebar-collapsed='true'] .icon-expand   { display: block; }
+
+  /* ── Sticky glass header ── */
   .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 15;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-top: 28px;
-    padding-bottom: 8px;
+    padding: 14px 16px;
+    border-radius: var(--glass-radius);
     gap: 16px;
+    flex-shrink: 0;
+  }
+
+  .site-title {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 0;
   }
 
   .header-meta {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--text-tertiary);
     white-space: nowrap;
   }
 
-  /* Pre-trip country list */
-  .countries {
-    margin-top: 40px;
+  /* ── Pre-trip: intro text ── */
+  .intro-text {
+    font-size: 13px;
+    font-weight: 300;
+    line-height: 1.65;
+    color: var(--text-secondary);
+    text-align: center;
+    margin: 0;
+    padding: 0 8px;
+  }
+
+  /* ── Pre-trip: country list ── */
+  .countries-panel {
+    padding: 4px 0;
   }
 
   .country-list {
     list-style: none;
     padding: 0;
     margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
   }
 
   .country-row {
     display: grid;
-    grid-template-columns: 28px 1fr auto;
-    gap: 14px;
-    align-items: baseline;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
+    grid-template-columns: 24px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    transition: background 200ms ease;
   }
 
-  .country-row:last-child {
-    border-bottom: none;
-  }
+  .country-row:last-child { border-bottom: none; }
 
-  .country-flag {
-    font-size: 18px;
-    line-height: 1;
-  }
+  .country-row:hover { background: rgba(255, 255, 255, 0.03); }
+
+  .country-flag { font-size: 16px; line-height: 1; }
 
   .country-name {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 500;
     letter-spacing: -0.01em;
   }
 
   .country-dates {
-    font-size: 11px;
-    letter-spacing: 0.04em;
+    font-size: 9px;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
+    color: var(--text-tertiary);
   }
 
-  .intro-text {
-    font-size: 14px;
-    font-weight: 300;
-    line-height: 1.6;
-    color: var(--text-secondary);
-    text-align: center;
-    max-width: 400px;
-    margin: 24px auto 0;
-  }
-
+  /* ── Post-trip stats ── */
   .post-trip-stats {
     text-align: center;
-    margin-top: 16px;
-    margin-bottom: 0;
-    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    margin: 0;
+    padding: 10px 16px;
+    border-radius: 999px;
+    align-self: center;
   }
 
+  /* ── Field notes feed ── */
+  .feed-zone {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Back to top ── */
   .back-to-top {
     position: fixed;
     bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-    right: 20px;
+    /* Left of the map controls (which are at right: 20px) */
+    right: 64px;
     width: 36px;
     height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--surface);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
+    background: rgba(20, 20, 20, 0.72);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
     border-radius: 50%;
+    color: var(--text-secondary);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 200ms ease;
-    z-index: 50;
+    transition: opacity 200ms ease, color 150ms ease;
+    z-index: 20;
+    cursor: pointer;
   }
 
-  .back-to-top:hover {
-    color: var(--text);
-  }
+  .back-to-top:hover { color: var(--text); }
 </style>

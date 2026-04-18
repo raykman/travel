@@ -5,7 +5,7 @@ interface Props {
 const { buildTime } = Astro.props;
 ---
 
-<footer class="site-footer container">
+<footer class="site-footer glass">
   <p class="footer-text">
     whereisray.com · may 1 – jul 18, 2026{buildTime && ` · updated ${buildTime}`}
   </p>
@@ -13,16 +13,18 @@ const { buildTime } = Astro.props;
 
 <style>
   .site-footer {
-    padding-top: 48px;
-    padding-bottom: calc(32px + env(safe-area-inset-bottom, 0px));
+    margin: 48px auto calc(32px + env(safe-area-inset-bottom, 0px));
+    max-width: min(480px, calc(100vw - 32px));
     text-align: center;
+    padding: 14px 20px;
+    border-radius: 999px; /* pill */
   }
 
   .footer-text {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 400;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.07em;
     color: var(--text-tertiary);
     margin: 0;
   }

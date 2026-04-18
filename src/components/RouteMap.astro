@@ -10,15 +10,11 @@ const { currentCoordinates = null, currentDay = 0 } = Astro.props;
 
 const MAPBOX_TOKEN = import.meta.env.PUBLIC_MAPBOX_TOKEN || '';
 
-// Convert [lat, lng] (post convention) to [lng, lat] (GeoJSON convention)
+// Convert [lat, lng] (post convention) to [lng, lat] (GeoJSON/Mapbox convention)
 const currentLngLat = currentCoordinates
   ? [currentCoordinates[1], currentCoordinates[0]]
   : null;
 
-// Config passed to the bundled module script via a JSON <script> tag.
-// We can't use `define:vars` on the script below because that forces it to be
-// emitted as an inline classic script, which would break the `import 'mapbox-gl'`
-// bare specifier (bare specifiers only resolve through the bundler).
 const mapConfig = {
   token: MAPBOX_TOKEN,
   routeData,
@@ -27,153 +23,134 @@ const mapConfig = {
 };
 ---
 
-<section class="map-section" aria-label="Interactive route map showing travel path through Japan, Vietnam, Cambodia, Laos, and Indonesia">
-  <p class="sr-only">Route: Tokyo, Kyoto, Osaka, Hiroshima, Sapporo, Hanoi, Hoi An, Ho Chi Minh City, Siem Reap, Phnom Penh, Luang Prabang, Vientiane, Bali, Yogyakarta, Jakarta</p>
-  <div class="map-wrap">
-    <div id="route-map" class="map">
-      <div class="map-loading" id="map-loading">
-        <span class="label">Loading map…</span>
-      </div>
-    </div>
-    <script
-      type="application/json"
-      id="route-map-config"
-      set:html={JSON.stringify(mapConfig)}
-    />
+<!--
+  Full-bleed map base layer.
+  position: fixed, z-index: 0 — sits behind the .scroll-layer (z: 10).
+  interactive: false on the Mapbox instance — flyTo works programmatically
+  (driven by scrollytelling) but users cannot drag/zoom the map; page scrolls
+  over it normally.
 
-    <button
-      id="map-toggle"
-      class="map-toggle"
-      type="button"
-      aria-pressed="false"
-      aria-label="Expand map"
-      title="Expand map"
-    >
-      <svg class="icon-expand" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-        <path
-          d="M9 1h4v4M5 13H1V9M13 1L8 6M1 13l5-5"
-          stroke="currentColor"
-          stroke-width="1.4"
-          fill="none"
-          stroke-linecap="round"
-        />
-      </svg>
-      <svg class="icon-close" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-        <path
-          d="M2 2l10 10M12 2L2 12"
-          stroke="currentColor"
-          stroke-width="1.4"
-          fill="none"
-          stroke-linecap="round"
-        />
-      </svg>
-    </button>
-  </div>
-</section>
+  OPTION B scaffold: to revert to a contained map on mobile, apply this CSS:
+    @media (max-width: 767px) {
+      .map-base { position: relative; height: 55vw; min-height: 280px; }
+    }
+  and in the script set `interactive: true` on mobile.
+-->
+<div
+  class="map-base"
+  role="img"
+  aria-label="Interactive route map showing travel path through Japan, Vietnam, Cambodia, Laos, and Indonesia"
+>
+  <p class="sr-only">Route: Tokyo, Niigata, Sapporo, Kobe, Okinawa, Hanoi, Hoi An, Ho Chi Minh City, Siem Reap, Phnom Penh, Luang Prabang, Thakhek, Jakarta, Yogyakarta, Surabaya, Pangkalan Bun</p>
+  <div id="route-map" class="map"></div>
+  <script
+    type="application/json"
+    id="route-map-config"
+    set:html={JSON.stringify(mapConfig)}
+  />
+</div>
+
+<!-- Map control buttons — position: fixed, z: 20, right side of viewport -->
+<div class="map-controls">
+  <!-- Reset view: fly to full route -->
+  <button
+    id="map-reset"
+    class="map-ctrl-btn"
+    type="button"
+    aria-label="Reset map to show full route"
+    title="Reset view"
+  >
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path d="M12.5 2.5 A6 6 0 1 0 13 7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+      <path d="M10 0.5 L13 2.5 L10.5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>
+  </button>
+
+  <!-- Interaction toggle: lock / unlock map drag & zoom -->
+  <button
+    id="map-interact-toggle"
+    class="map-ctrl-btn"
+    type="button"
+    aria-pressed="false"
+    aria-label="Enable map interaction"
+    title="Enable map interaction (off by default)"
+  >
+    <!-- Lock icon (default: interaction off) -->
+    <svg class="icon-locked" width="13" height="14" viewBox="0 0 13 14" fill="none" aria-hidden="true">
+      <rect x="1" y="6" width="11" height="8" rx="2" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M3.5 6V4a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>
+    <!-- Unlock icon (interaction on) -->
+    <svg class="icon-unlocked" width="13" height="14" viewBox="0 0 13 14" fill="none" aria-hidden="true">
+      <rect x="1" y="6" width="11" height="8" rx="2" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M3.5 6V4a3 3 0 0 1 6 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    </svg>
+  </button>
+</div>
 
 <style>
-  .map-section {
-    margin-top: 32px;
+  /* ---- Base layer: fixed full-viewport map ---- */
+  .map-base {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
     width: 100vw;
-    margin-left: calc(50% - 50vw);
-  }
-
-  .map-wrap {
-    position: relative;
-    overflow: hidden;
-    background: var(--surface);
+    height: 100vh;
+    /* pointer-events: none so the scroll-layer above captures all user
+       events. flyTo/fitBounds still work because they're programmatic. */
+    pointer-events: none;
   }
 
   .map {
     width: 100%;
-    height: 55vw;
-    max-height: 600px;
-    min-height: 280px;
-  }
-
-  .map-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
     height: 100%;
-    color: var(--text-tertiary);
-    font-size: 12px;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
   }
 
-  @media (min-width: 640px) {
-    .map {
-      height: 520px;
-    }
-  }
-
-  /* Fullscreen mode — pinned to the viewport, map fills the space. */
-  :global(.map-wrap.is-fullscreen) {
+  /* ---- Map control button group ---- */
+  .map-controls {
     position: fixed;
-    inset: 0;
-    z-index: 100;
-    border-radius: 0;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: auto; /* override parent's none */
+    z-index: 20;
   }
 
-  :global(.map-wrap.is-fullscreen) .map {
-    height: 100%;
-    max-height: none;
-    min-height: 0;
-  }
-
-  :global(.map-wrap.is-fullscreen) .map-toggle {
-    width: 40px;
-    height: 40px;
-    top: calc(16px + env(safe-area-inset-top, 0px));
-    right: calc(16px + env(safe-area-inset-right, 0px));
-  }
-
-  .map-toggle {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    width: 32px;
-    height: 32px;
-    top: calc(10px + env(safe-area-inset-top, 0px));
-    right: calc(10px + env(safe-area-inset-right, 0px));
+  .map-ctrl-btn {
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg);
+    background: rgba(20, 20, 20, 0.72);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 50%;
     color: var(--text-secondary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
+    cursor: pointer;
     transition: color 150ms ease, background 150ms ease;
-    z-index: 2;
   }
 
-  .map-toggle:hover {
+  .map-ctrl-btn:hover {
     color: var(--text);
+    background: rgba(35, 35, 35, 0.88);
   }
 
-  .map-toggle[aria-pressed='true'] {
+  /* Interaction toggle: accent color when active (unlocked) */
+  .map-ctrl-btn[aria-pressed='true'] {
     color: var(--accent);
-    background: var(--surface);
+    border-color: rgba(184, 168, 138, 0.30);
   }
 
-  /* Swap icons based on toggle state */
-  .map-toggle .icon-close {
-    display: none;
-  }
+  /* Swap lock/unlock icons */
+  .icon-unlocked { display: none; }
+  .map-ctrl-btn[aria-pressed='true'] .icon-locked   { display: none; }
+  .map-ctrl-btn[aria-pressed='true'] .icon-unlocked { display: block; }
 
-  .map-toggle[aria-pressed='true'] .icon-expand {
-    display: none;
-  }
-
-  .map-toggle[aria-pressed='true'] .icon-close {
-    display: block;
-  }
-
-  /* City name labels on the map — same Plus Jakarta Sans style as the rest
-     of the site. Uses `:global` so Mapbox's marker wrapping doesn't scope them
-     away. Each label is an HTML Marker anchored to the left of the city
-     coordinate, offset to the right of the dot. */
+  /* ---- Map city labels (HTML Markers) ---- */
   :global(.map-city-label) {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 9px;
@@ -181,11 +158,19 @@ const mapConfig = {
     letter-spacing: 0.08em;
     text-transform: uppercase;
     white-space: nowrap;
-    pointer-events: none;
+    /* pointer-events: auto so hover highlights the matching upcoming item */
+    pointer-events: auto;
+    cursor: default;
     color: var(--text-tertiary);
     text-shadow:
-      0 0 3px rgba(26, 27, 30, 0.9),
-      0 0 8px rgba(26, 27, 30, 0.7);
+      0 0 3px rgba(16, 16, 15, 0.95),
+      0 0 10px rgba(16, 16, 15, 0.8);
+    transition: color 150ms ease;
+  }
+
+  :global(.map-city-label:hover),
+  :global(.map-city-label.is-hover-active) {
+    color: var(--text) !important;
   }
 
   :global(.map-city-label.visited) {
@@ -197,13 +182,7 @@ const mapConfig = {
     font-weight: 500;
   }
 
-  /* Pulsing current-location marker.
-     Mapbox re-uses the outer element and writes an inline `transform` on it
-     to position the marker. If we animate `transform` on that same element,
-     the animation overwrites Mapbox's positioning and the marker gets stuck
-     at (0,0) of the map. Fix: the outer `.map-current-marker` is Mapbox's
-     positioning target (no animation), and an inner `.map-current-dot`
-     child owns the pulse animation. */
+  /* ---- Current-location pulsing marker ---- */
   :global(.map-current-marker) {
     width: 14px;
     height: 14px;
@@ -232,24 +211,21 @@ const mapConfig = {
 
   :global(.mapboxgl-ctrl-logo),
   :global(.mapboxgl-ctrl-attrib) {
-    opacity: 0.35;
+    opacity: 0.25;
   }
-
 </style>
 
 <script>
-  // Astro processes this through Vite as an ES module — `mapbox-gl` resolves
-  // via the bundler. Keep this script free of `define:vars` so Astro doesn't
-  // force it to inline (which would break bare-specifier imports).
   import mapboxgl from 'mapbox-gl';
 
   (async function () {
     const mapEl = document.getElementById('route-map');
-    const toggle = document.getElementById('map-toggle');
+    const resetBtn = document.getElementById('map-reset');
+    const interactToggle = document.getElementById('map-interact-toggle');
     const configEl = document.getElementById('route-map-config');
     if (!mapEl || !configEl) return;
 
-    let cfg;
+    let cfg: any;
     try {
       cfg = JSON.parse(configEl.textContent || '{}');
     } catch (e) {
@@ -266,75 +242,68 @@ const mapConfig = {
 
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
-    // Separate departure stop from trip points
+    // ---- Route data helpers ----
     const departurePoint = routeData.features.find(
-      (f) => f.geometry.type === 'Point' && f.properties.departure
+      (f: any) => f.geometry.type === 'Point' && f.properties.departure
     );
     const points = routeData.features.filter(
-      (f) => f.geometry.type === 'Point' && !f.properties.departure
+      (f: any) => f.geometry.type === 'Point' && !f.properties.departure
     );
-
-    // Find the named LineString features
-    const routeFeatureByName = (name) =>
+    const routeFeatureByName = (name: string) =>
       routeData.features.find(
-        (f) => f.geometry.type === 'LineString' && f.properties.name === name
+        (f: any) => f.geometry.type === 'LineString' && f.properties.name === name
       );
-    const allBounds = new mapboxgl.LngLatBounds();
-    points.forEach((p) => allBounds.extend(p.geometry.coordinates));
 
-    // Zoom to nearby region when we have a current position, full route otherwise
+    const allBounds = new mapboxgl.LngLatBounds();
+    points.forEach((p: any) => allBounds.extend(p.geometry.coordinates));
+
     const DAY_RANGE = 20;
     const nearbyPoints = currentDay
       ? points.filter(
-          (p) =>
+          (p: any) =>
             p.properties.day >= currentDay - DAY_RANGE &&
             p.properties.day <= currentDay + DAY_RANGE
         )
       : points;
     const initialBounds = new mapboxgl.LngLatBounds();
-    nearbyPoints.forEach((p) => initialBounds.extend(p.geometry.coordinates));
+    nearbyPoints.forEach((p: any) => initialBounds.extend(p.geometry.coordinates));
 
+    // ---- Map init ----
+    // interactive: false — programmatic flyTo works but user can't drag/zoom.
+    // This keeps page scrolling clean; scrollytelling drives the map.
     const map = new mapboxgl.Map({
       container: mapEl,
       style: 'mapbox://styles/mapbox/dark-v11',
       bounds: initialBounds.isEmpty() ? allBounds : initialBounds,
-      fitBoundsOptions: { padding: 60, duration: 0 },
-      interactive: true,
-      cooperativeGestures: true, // Ctrl/Cmd+scroll to zoom; prevents hijacking page scroll
+      fitBoundsOptions: { padding: 100, duration: 0 },
+      interactive: false,
       attributionControl: { compact: true },
     });
 
+    // Expose for scrollytelling + reset button
+    (window as any).__map = map;
+    (window as any).__mapAllBounds = allBounds;
+
+    // ---- Layer setup ----
     const onLoad = () => {
-      // Override base colors to match charcoal theme
+      // Override base colors to match deep charcoal theme
       try {
         if (map.getLayer('background')) {
-          map.setPaintProperty('background', 'background-color', '#1A1B1E');
+          map.setPaintProperty('background', 'background-color', '#10100F');
         }
-        // Water slightly lighter than bg
-        const waterLayers = map.getStyle().layers.filter((l) => l.id.includes('water'));
-        waterLayers.forEach((l) => {
+        const waterLayers = map.getStyle().layers.filter((l: any) => l.id.includes('water'));
+        waterLayers.forEach((l: any) => {
           if (l.type === 'fill') {
-            try {
-              map.setPaintProperty(l.id, 'fill-color', '#242528');
-            } catch (_) {}
+            try { map.setPaintProperty(l.id, 'fill-color', '#181818'); } catch (_) {}
           }
         });
-        // Tone down labels heavily
-        const labelLayers = map
-          .getStyle()
-          .layers.filter((l) => l.type === 'symbol');
-        labelLayers.forEach((l) => {
-          try {
-            map.setLayoutProperty(l.id, 'visibility', 'none');
-          } catch (_) {}
+        const labelLayers = map.getStyle().layers.filter((l: any) => l.type === 'symbol');
+        labelLayers.forEach((l: any) => {
+          try { map.setLayoutProperty(l.id, 'visibility', 'none'); } catch (_) {}
         });
-      } catch (_) {
-        /* style overrides are best-effort */
-      }
+      } catch (_) { /* style overrides are best-effort */ }
 
-      // Departure flight path (SF → Tokyo).
-      // Visited (currentDay > 0): solid sand, same as route-visited.
-      // Pre-trip (currentDay === 0): dashed gray, same as route-full.
+      // ---- Departure flight arc (SF → Tokyo) ----
       const departureFlight = routeFeatureByName('departure-flight');
       const flightIsVisited = currentDay > 0;
       if (departureFlight) {
@@ -348,7 +317,6 @@ const mapConfig = {
             : { 'line-color': '#505258', 'line-width': 1.8, 'line-dasharray': [3, 3] },
         });
 
-        // Animate draw-on if visited
         if (flightIsVisited) {
           const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           if (!prefersReduced) {
@@ -370,7 +338,7 @@ const mapConfig = {
         }
       }
 
-      // Departure city dot + label — visited style when flight is covered
+      // Departure city dot + label
       if (departurePoint) {
         map.addSource('stop-departure', {
           type: 'geojson',
@@ -392,55 +360,36 @@ const mapConfig = {
           .addTo(map);
       }
 
-      // Split route into visited (up to current) and future
+      // ---- Route lines ----
       const routeFeature = routeFeatureByName('route');
-      const visited = points.filter((p) => p.properties.day <= currentDay);
-      const future = points.filter((p) => p.properties.day > currentDay);
+      const visited = points.filter((p: any) => p.properties.day <= currentDay);
+      const future = points.filter((p: any) => p.properties.day > currentDay);
 
       if (routeFeature) {
-        // Full (dashed) route
-        map.addSource('route-full', {
-          type: 'geojson',
-          data: routeFeature,
-        });
+        map.addSource('route-full', { type: 'geojson', data: routeFeature });
         map.addLayer({
           id: 'route-full',
           type: 'line',
           source: 'route-full',
-          paint: {
-            'line-color': '#505258',
-            'line-width': 1.8,
-            'line-dasharray': [3, 3],
-          },
+          paint: { 'line-color': '#505258', 'line-width': 1.8, 'line-dasharray': [3, 3] },
         });
 
-        // Visited portion (solid). Build a sliced LineString using visited
-        // point coordinates in order by day.
         if (visited.length > 1) {
           const visitedCoords = visited
             .slice()
-            .sort((a, b) => a.properties.day - b.properties.day)
-            .map((f) => f.geometry.coordinates);
+            .sort((a: any, b: any) => a.properties.day - b.properties.day)
+            .map((f: any) => f.geometry.coordinates);
           map.addSource('route-visited', {
             type: 'geojson',
-            data: {
-              type: 'Feature',
-              properties: {},
-              geometry: { type: 'LineString', coordinates: visitedCoords },
-            },
+            data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: visitedCoords } },
           });
           map.addLayer({
             id: 'route-visited',
             type: 'line',
             source: 'route-visited',
-            paint: {
-              'line-color': '#B8A88A',
-              'line-width': 2,
-              'line-dasharray': [0.001, 5000],
-            },
+            paint: { 'line-color': '#B8A88A', 'line-width': 2, 'line-dasharray': [0.001, 5000] },
           });
 
-          // Draw-on animation: animate dasharray from hidden to full over 3s
           const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           if (!prefersReduced) {
             const DASH_MAX = 5000;
@@ -461,45 +410,24 @@ const mapConfig = {
         }
       }
 
-      // Stop points
+      // ---- Stop dots ----
       if (future.length) {
-        map.addSource('stops-future', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: future },
-        });
+        map.addSource('stops-future', { type: 'geojson', data: { type: 'FeatureCollection', features: future } });
         map.addLayer({
-          id: 'stops-future',
-          type: 'circle',
-          source: 'stops-future',
-          paint: {
-            'circle-radius': 4,
-            'circle-color': 'rgba(0,0,0,0)',
-            'circle-stroke-color': '#505258',
-            'circle-stroke-width': 1.4,
-          },
+          id: 'stops-future', type: 'circle', source: 'stops-future',
+          paint: { 'circle-radius': 4, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-color': '#505258', 'circle-stroke-width': 1.4 },
         });
       }
 
       if (visited.length) {
-        map.addSource('stops-visited', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: visited },
-        });
+        map.addSource('stops-visited', { type: 'geojson', data: { type: 'FeatureCollection', features: visited } });
         map.addLayer({
-          id: 'stops-visited',
-          type: 'circle',
-          source: 'stops-visited',
-          paint: {
-            'circle-radius': 4,
-            'circle-color': '#B8A88A',
-            'circle-opacity': 0.75,
-          },
+          id: 'stops-visited', type: 'circle', source: 'stops-visited',
+          paint: { 'circle-radius': 4, 'circle-color': '#B8A88A', 'circle-opacity': 0.75 },
         });
       }
 
-      // Current location: pulsing HTML marker. Wrap with a positioning
-      // element that Mapbox controls, and put the animation on an inner child
-      // so the pulse animation doesn't clobber Mapbox's inline transform.
+      // ---- Current location pulsing marker ----
       if (currentLngLat) {
         const wrap = document.createElement('div');
         wrap.className = 'map-current-marker';
@@ -511,82 +439,88 @@ const mapConfig = {
           .addTo(map);
       }
 
-      // City name labels — HTML markers anchored left of each dot so the
-      // text sits to the right of the point. Labels are styled via the
-      // global `.map-city-label` rule so Plus Jakarta Sans / uppercase /
-      // tracking match the rest of the site.
-      points.forEach((p) => {
-        const city = p.properties && p.properties.city;
+      // ---- City name labels ----
+      // pointer-events: auto (see CSS) so hovering dispatches 'cityhover'
+      // to highlight the matching upcoming item in the sidebar.
+      points.forEach((p: any) => {
+        const city = p.properties?.city;
         if (!city) return;
         const day = p.properties.day;
-
         const label = document.createElement('span');
         label.className = 'map-city-label';
+        label.dataset.day = String(day);
         if (typeof day === 'number') {
           if (day < currentDay) label.classList.add('visited');
           else if (day === currentDay) label.classList.add('current');
         }
         label.textContent = city;
 
-        new mapboxgl.Marker({
-          element: label,
-          anchor: 'left',
-          offset: [8, 0],
-        })
+        label.addEventListener('mouseenter', () => {
+          document.dispatchEvent(new CustomEvent('cityhover', { detail: { day } }));
+        });
+        label.addEventListener('mouseleave', () => {
+          document.dispatchEvent(new CustomEvent('cityhover', { detail: { day: null } }));
+        });
+
+        new mapboxgl.Marker({ element: label, anchor: 'left', offset: [8, 0] })
           .setLngLat(p.geometry.coordinates)
           .addTo(map);
       });
+
+      // Signal readiness for scrollytelling
+      document.dispatchEvent(new CustomEvent('mapready'));
     };
 
-    // Remove loading placeholder once map is ready
-    map.once('load', () => {
-      document.getElementById('map-loading')?.remove();
-    });
-
-    // Fire on load, or immediately if already loaded (race condition guard)
     if (map.isStyleLoaded()) {
       onLoad();
     } else {
       map.on('load', onLoad);
     }
 
-    // Fullscreen + interaction toggle. Fullscreen pins `.map-wrap` to the
-    // viewport via CSS (`.is-fullscreen`), which changes the container size,
-    // so we must call `map.resize()` and refit bounds after the layout
-    // change. Interaction (scroll/drag/zoom) is only meaningful in
-    // fullscreen mode, so the two are coupled behind a single button.
-    const wrapEl = mapEl.parentElement;
-    let isFullscreen = false;
-
-    const setFullscreen = (on) => {
-      isFullscreen = on;
-      if (wrapEl) wrapEl.classList.toggle('is-fullscreen', on);
-      document.body.style.overflow = on ? 'hidden' : '';
-      if (toggle) {
-        toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
-        toggle.setAttribute('aria-label', on ? 'Close fullscreen' : 'Expand map');
-        toggle.setAttribute('title', on ? 'Close fullscreen' : 'Expand map');
+    // ---- Reset-view button ----
+    resetBtn?.addEventListener('click', () => {
+      const b = allBounds.isEmpty() ? null : allBounds;
+      if (b) {
+        map.flyTo({
+          ...map.cameraForBounds(b, { padding: 100 })!,
+          duration: 1400,
+          essential: true,
+        });
       }
-      // Wait a frame for layout to settle, then tell Mapbox to re-measure.
-      // Fullscreen shows the entire route; inline view focuses on the region.
-      requestAnimationFrame(() => {
-        map.resize();
-        const b = on ? allBounds : (initialBounds.isEmpty() ? allBounds : initialBounds);
-        if (!b.isEmpty()) {
-          map.fitBounds(b, {
-            padding: on ? 80 : 60,
-            duration: 300,
-          });
-        }
-      });
-    };
+    });
 
-    if (toggle) {
-      toggle.addEventListener('click', () => setFullscreen(!isFullscreen));
+    // ---- Map interaction toggle ----
+    // Default: interactive: false (map is driven by scrollytelling / flyTo).
+    // Toggle enables full drag/zoom for manual exploration.
+    let isInteractive = false;
+
+    function setMapInteractive(on: boolean) {
+      isInteractive = on;
+      const handlers = [
+        map.scrollZoom, map.dragPan, map.dragRotate,
+        map.touchZoomRotate, map.doubleClickZoom, map.keyboard,
+      ];
+      handlers.forEach((h) => { try { on ? h.enable() : h.disable(); } catch (_) {} });
+
+      // pointer-events: none on .map-base blocks all input to the canvas;
+      // must be toggled here or drag/scroll never reach Mapbox handlers.
+      const mapBase = mapEl.parentElement as HTMLElement | null;
+      if (mapBase) mapBase.style.pointerEvents = on ? 'auto' : 'none';
+
+      interactToggle?.setAttribute('aria-pressed', String(on));
+      interactToggle?.setAttribute(
+        'aria-label', on ? 'Disable map interaction' : 'Enable map interaction'
+      );
+      interactToggle?.setAttribute(
+        'title', on ? 'Disable map interaction' : 'Enable map interaction (off by default)'
+      );
+
+      if (mapEl) mapEl.style.cursor = on ? 'grab' : '';
     }
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && isFullscreen) setFullscreen(false);
-    });
+    // Ensure all handlers start disabled (belt-and-suspenders for interactive: false)
+    setMapInteractive(false);
+
+    interactToggle?.addEventListener('click', () => setMapInteractive(!isInteractive));
   })();
 </script>

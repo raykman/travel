@@ -13,16 +13,16 @@ interface Props {
 const { state, city, flag, countryName } = Astro.props;
 ---
 
-<section class="hero container" aria-label="Current status">
+<section class="hero glass" aria-label="Current status">
   {state === 'live' && city && (
     <>
       <div class="hero-label-row">
         <span class="pulse-dot" aria-hidden="true">
           <span class="pulse-core"></span>
         </span>
-        <span class="label">Currently in</span>
+        <span class="label hero-label">Currently in</span>
       </div>
-      <h1 class="display hero-city">
+      <h1 class="hero-city">
         {city}
         {flag && <span class="flag" aria-label={countryName}>{flag}</span>}
       </h1>
@@ -31,25 +31,26 @@ const { state, city, flag, countryName } = Astro.props;
 
   {state === 'pre' && (
     <>
-      <span class="label">Departing soon</span>
-      <h1 class="display hero-city">Asia</h1>
+      <span class="label hero-label">Departing soon</span>
+      <h1 class="hero-city">Asia</h1>
     </>
   )}
 
   {state === 'post' && (
     <>
-      <span class="label">Trip complete</span>
-      <h1 class="display hero-city">{TRIP_LENGTH_DAYS} days · {countries.length} countries</h1>
+      <span class="label hero-label">Trip complete</span>
+      <h1 class="hero-city">{TRIP_LENGTH_DAYS} days</h1>
+      <p class="hero-sub">{countries.length} countries · Asia 2026</p>
     </>
   )}
 </section>
 
 <style>
   .hero {
-    margin-top: 32px;
+    padding: 28px 24px 24px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
   }
 
   .hero-label-row {
@@ -58,25 +59,48 @@ const { state, city, flag, countryName } = Astro.props;
     gap: 10px;
   }
 
+  .hero-label {
+    /* Smaller, wide-tracked metadata style */
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  /* Large bold city name — primary visual hierarchy anchor */
   .hero-city {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
+    font-size: clamp(48px, 10vw, 72px);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin: 0;
+    color: var(--text);
+  }
+
+  .hero-sub {
+    font-size: 13px;
+    font-weight: 300;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    margin: 0;
   }
 
   .flag {
-    font-size: 0.7em;
+    font-size: 0.55em;
     line-height: 1;
+    vertical-align: middle;
+    margin-left: 4px;
     filter: saturate(0.85);
   }
 
   /* Pulsing dot for current location */
   .pulse-dot {
     position: relative;
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     display: inline-block;
+    flex-shrink: 0;
   }
 
   .pulse-core {

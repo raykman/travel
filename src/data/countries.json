@@ -7,7 +7,8 @@
     "startDay": 1,
     "endDay": 23,
     "startDate": "2026-05-01",
-    "endDate": "2026-05-23"
+    "endDate": "2026-05-23",
+    "center": [139.6503, 35.6762]
   },
   {
     "id": "vietnam",
@@ -17,7 +18,8 @@
     "startDay": 24,
     "endDay": 38,
     "startDate": "2026-05-24",
-    "endDate": "2026-06-07"
+    "endDate": "2026-06-07",
+    "center": [105.8542, 21.0285]
   },
   {
     "id": "cambodia",
@@ -27,7 +29,8 @@
     "startDay": 39,
     "endDay": 48,
     "startDate": "2026-06-08",
-    "endDate": "2026-06-17"
+    "endDate": "2026-06-17",
+    "center": [103.8448, 13.3671]
   },
   {
     "id": "laos",
@@ -37,7 +40,8 @@
     "startDay": 49,
     "endDay": 60,
     "startDate": "2026-06-18",
-    "endDate": "2026-06-29"
+    "endDate": "2026-06-29",
+    "center": [102.1357, 19.8833]
   },
   {
     "id": "indonesia",
@@ -47,6 +51,7 @@
     "startDay": 61,
     "endDay": 79,
     "startDate": "2026-06-30",
-    "endDate": "2026-07-18"
+    "endDate": "2026-07-18",
+    "center": [106.8456, -6.2088]
   }
 ]

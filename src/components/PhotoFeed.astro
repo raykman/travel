@@ -1,20 +1,21 @@
 ---
-import { getAllPosts, type Post } from '../lib/posts';
+import type { Post } from '../lib/posts';
 import PhotoCard from './PhotoCard.astro';
 
-const posts = await getAllPosts(); // already sorted newest-first
+interface Props {
+  posts: Post[];
+}
 
-// PhotoCard requires at least one image, so filter out imageless posts
-// (can happen with Notion entries that omit the Image URL field).
-const withImages: Post[] = posts.filter((p) => p.data.images.length > 0);
+const { posts } = Astro.props;
+
+// PhotoCard requires at least one image
+const withImages = posts.filter((p) => p.data.images.length > 0);
 ---
 
-<section class="feed container section" aria-labelledby="feed-heading">
-  <h2 id="feed-heading" class="label-lg feed-heading">Field notes</h2>
+{withImages.length > 0 && (
+  <section class="feed" aria-labelledby="feed-heading">
+    <h2 id="feed-heading" class="feed-heading glass">Field notes</h2>
 
-  {withImages.length === 0 ? (
-    <p class="feed-empty text-tertiary">No entries yet.</p>
-  ) : (
     <div class="feed-list">
       {withImages.map((post, i) => (
         <PhotoCard
@@ -25,26 +26,38 @@ const withImages: Post[] = posts.filter((p) => p.data.images.length > 0);
           images={post.data.images}
           index={i}
           country={post.data.country}
+          coordinates={post.data.coordinates}
         />
       ))}
     </div>
-  )}
-</section>
+  </section>
+)}
 
 <style>
+  /* Full-width — intentionally no .container wrapper; PhotoCard handles
+     the full-bleed images and constrains caption text itself. */
+  .feed {
+    display: flex;
+    flex-direction: column;
+  }
+
   .feed-heading {
-    margin: 0 0 24px;
-    display: block;
+    /* Glass pill label above the feed */
+    display: inline-block;
+    align-self: center;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-tertiary);
+    margin: 0 0 32px;
+    padding: 8px 16px;
+    border-radius: 999px; /* pill shape */
   }
 
   .feed-list {
     display: flex;
     flex-direction: column;
     gap: 48px;
-  }
-
-  .feed-empty {
-    font-size: 13px;
-    margin: 0;
   }
 </style>

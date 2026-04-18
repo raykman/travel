@@ -9,98 +9,208 @@ interface Props {
   images: { url: string; alt: string }[];
   index?: number;
   country?: string;
+  // [lat, lng] from post data — converted to "lng,lat" for Mapbox in data-lnglat
+  coordinates?: [number, number];
 }
 
-const { day, location, title, caption, images, index = 0, country } = Astro.props;
+const { day, location, title, caption, images, index = 0, country, coordinates } = Astro.props;
 const isMulti = images.length > 1;
 const cardId = `pc-${day}-${location.toLowerCase().replace(/\s+/g, '-')}`;
 const countryColor = country ? (countries.find((c) => c.id === country)?.color ?? null) : null;
 const delay = (index % 3) * 100;
-
 const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
+
+// Convert [lat, lng] → "lng,lat" string for Mapbox's flyTo center
+const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
 ---
 
-<article class="card fade-in" data-card style={cardStyle}>
-  {
-    isMulti ? (
-      <div
-        class="scroller"
-        data-scroller
-        data-card-id={cardId}
-        role="region"
-        aria-roledescription="carousel"
-        aria-label={`${title} — ${images.length} images`}
-      >
-        <div class="scroller-track" data-track>
-          {images.map((img, i) => (
-            <div
-              class="scroller-slide"
-              data-index={i}
-              role="group"
-              aria-roledescription="slide"
-              aria-label={`Image ${i + 1} of ${images.length}`}
-            >
-              <img src={img.url} alt={img.alt} loading="lazy" decoding="async" />
-            </div>
-          ))}
+<article
+  class="photo-card fade-in"
+  data-card
+  style={cardStyle}
+  {...lngLat ? { 'data-lnglat': lngLat } : {}}
+>
+  <!-- Image area — contained within the glass panel -->
+  <div class="card-media">
+    {
+      isMulti ? (
+        <div
+          class="scroller"
+          data-scroller
+          data-card-id={cardId}
+          role="region"
+          aria-roledescription="carousel"
+          aria-label={`${title} — ${images.length} images`}
+        >
+          <div class="scroller-track" data-track>
+            {images.map((img, i) => (
+              <div
+                class="scroller-slide"
+                data-index={i}
+                data-src={img.url}
+                data-alt={img.alt}
+                role="group"
+                aria-roledescription="slide"
+                aria-label={`Image ${i + 1} of ${images.length}`}
+              >
+                <img src={img.url} alt={img.alt} loading="lazy" decoding="async" />
+              </div>
+            ))}
+          </div>
+          <div class="dots" data-dots aria-hidden="true">
+            {images.map((_, i) => (
+              <span class={`dot${i === 0 ? ' active' : ''}`} data-dot-index={i} />
+            ))}
+          </div>
+          <button class="carousel-btn carousel-prev" data-prev aria-label="Previous image">
+            <svg width="8" height="13" viewBox="0 0 8 13" fill="none" aria-hidden="true">
+              <path d="M7 1L1 6.5 7 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <button class="carousel-btn carousel-next" data-next aria-label="Next image">
+            <svg width="8" height="13" viewBox="0 0 8 13" fill="none" aria-hidden="true">
+              <path d="M1 1l6 5.5-6 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <!-- Expand current slide to lightbox -->
+          <button class="img-expand-btn" data-expand-carousel aria-label="View fullscreen">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </div>
-        <div class="dots" data-dots aria-hidden="true">
-          {images.map((_, i) => (
-            <span class={`dot${i === 0 ? ' active' : ''}`} data-dot-index={i} />
-          ))}
+      ) : (
+        <div class="single">
+          <img src={images[0].url} alt={images[0].alt} loading="lazy" decoding="async" />
+          <!-- Expand to lightbox -->
+          <button
+            class="img-expand-btn"
+            data-lightbox-src={images[0].url}
+            data-lightbox-alt={images[0].alt}
+            aria-label="View fullscreen"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M1 4.5V1h3.5M7.5 1H11v3.5M11 7.5V11H7.5M4.5 11H1V7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
         </div>
-        <button class="carousel-btn carousel-prev" data-prev aria-label="Previous image">
-          <svg width="8" height="13" viewBox="0 0 8 13" fill="none" aria-hidden="true">
-            <path d="M7 1L1 6.5 7 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-        <button class="carousel-btn carousel-next" data-next aria-label="Next image">
-          <svg width="8" height="13" viewBox="0 0 8 13" fill="none" aria-hidden="true">
-            <path d="M1 1l6 5.5-6 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-      </div>
-    ) : (
-      <div class="single">
-        <img src={images[0].url} alt={images[0].alt} loading="lazy" decoding="async" />
-      </div>
-    )
-  }
-
-  <div class="meta">
-    {countryColor && (
-      <span class="country-dot" style={`background: ${countryColor};`} aria-hidden="true" />
-    )}
-    <span class="label">Day {day}</span>
-    <span class="dot-sep" aria-hidden="true">·</span>
-    <span class="label">{location}</span>
+      )
+    }
   </div>
 
-  <h2 class="card-title">{title}</h2>
-  <p class="card-caption">{caption}</p>
+  <!-- Glass caption panel -->
+  <div class="card-caption-panel glass">
+    <div class="meta">
+      {countryColor && (
+        <span class="country-dot" style={`background: ${countryColor};`} aria-hidden="true" />
+      )}
+      <span class="meta-label">Day {day}</span>
+      <span class="meta-sep" aria-hidden="true">·</span>
+      <span class="meta-label">{location}</span>
+    </div>
+
+    <h2 class="card-title">{title}</h2>
+    <p class="card-body">{caption}</p>
+  </div>
 </article>
 
 <style>
-  .card {
+  /* ---- Card shell ---- */
+  .photo-card {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+  }
+
+  /* ---- Media: contained within the glass panel ---- */
+  .card-media {
+    width: 100%;
+    position: relative;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--glass-radius) var(--glass-radius) 0 0;
+    overflow: hidden;
+  }
+
+  .single,
+  .scroller {
+    position: relative;
   }
 
   .single img,
   .scroller-slide img {
     width: 100%;
+    /* Show the full image without cropping */
     height: auto;
-    border-radius: var(--radius-card);
-    background: var(--surface);
+    max-height: 320px;
+    object-fit: contain;
+    display: block;
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  /* ---- Caption panel ---- */
+  .card-caption-panel {
+    border-radius: 0 0 var(--glass-radius) var(--glass-radius);
+    padding: 16px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    transition: background 150ms ease;
+  }
+
+  .card-caption-panel:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  /* ---- Metadata row ---- */
+  .meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .country-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .meta-label {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    color: var(--text-tertiary);
+  }
+
+  .meta-sep {
+    color: var(--text-tertiary);
+    font-size: 10px;
+    opacity: 0.5;
+  }
+
+  /* ---- Title / caption ---- */
+  .card-title {
+    font-size: clamp(20px, 4vw, 26px);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin: 0;
+    color: var(--text);
+  }
+
+  .card-body {
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.70;
+    color: var(--text-secondary);
+    margin: 0;
   }
 
   /* ---- Multi-image horizontal scroll ---- */
   .scroller {
     position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
   }
 
   .scroller-track {
@@ -109,7 +219,6 @@ const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
     scroll-snap-type: x mandatory;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    gap: 8px;
     scroll-behavior: smooth;
   }
 
@@ -122,22 +231,58 @@ const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
     scroll-snap-align: center;
   }
 
+  /* ---- Expand to lightbox button ---- */
+  .img-expand-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(16, 16, 15, 0.60);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.75);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 150ms ease, background 150ms ease;
+    z-index: 3;
+  }
+
+  .card-media:hover .img-expand-btn {
+    opacity: 1;
+  }
+
+  .img-expand-btn:hover {
+    background: rgba(30, 30, 28, 0.85);
+    color: #fff;
+  }
+
   .dots {
+    position: absolute;
+    bottom: 8px;
+    left: 0;
+    right: 0;
     display: flex;
     justify-content: center;
     gap: 6px;
+    pointer-events: none;
   }
 
   .dot {
     width: 5px;
     height: 5px;
     border-radius: 50%;
-    background: var(--border);
+    background: rgba(255, 255, 255, 0.35);
     transition: background 200ms ease, transform 200ms ease;
   }
 
   .dot.active {
-    background: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.85);
     transform: scale(1.2);
   }
 
@@ -145,28 +290,21 @@ const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
   .carousel-btn {
     position: absolute;
     top: 0;
-    bottom: 22px; /* above dots */
-    width: 40px;
+    bottom: 0;
+    width: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text);
-    background: rgba(26, 27, 30, 0.5);
+    background: rgba(16, 16, 15, 0.45);
     border-radius: 0;
     opacity: 0;
     transition: opacity 150ms ease;
     z-index: 2;
   }
 
-  .carousel-prev {
-    left: 0;
-    border-radius: var(--radius-card) 0 0 var(--radius-card);
-  }
-
-  .carousel-next {
-    right: 0;
-    border-radius: 0 var(--radius-card) var(--radius-card) 0;
-  }
+  .carousel-prev { left: 0; }
+  .carousel-next { right: 0; }
 
   .scroller:hover .carousel-btn,
   .carousel-btn:focus-visible {
@@ -177,46 +315,35 @@ const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
     opacity: 0 !important;
     pointer-events: none;
   }
-
-  /* ---- Metadata + caption ---- */
-  .meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 4px;
-  }
-
-  .country-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .dot-sep {
-    color: var(--text-tertiary);
-    font-size: 10px;
-  }
-
-  .card-title {
-    font-size: 16px;
-    font-weight: 500;
-    letter-spacing: -0.01em;
-    margin: 0;
-    color: var(--text);
-  }
-
-  .card-caption {
-    font-size: 14px;
-    font-weight: 300;
-    line-height: 1.65;
-    color: var(--text-secondary);
-    margin: 0;
-  }
 </style>
 
 <script>
   (function () {
+    // ---- Caption click → fly map to card location ----
+    function initCaptionClick() {
+      const map = (window as any).__map;
+      if (!map) return;
+      document.querySelectorAll<HTMLElement>('[data-card][data-lnglat]').forEach((card) => {
+        const panel = card.querySelector<HTMLElement>('.card-caption-panel');
+        if (!panel) return;
+        panel.addEventListener('click', () => {
+          const raw = card.dataset.lnglat;
+          if (!raw) return;
+          const [lngStr, latStr] = raw.split(',');
+          const center: [number, number] = [parseFloat(lngStr), parseFloat(latStr)];
+          if (!isNaN(center[0]) && !isNaN(center[1])) {
+            map.flyTo({ center, zoom: 10, duration: 1800, essential: true, curve: 1.4 });
+          }
+        });
+      });
+    }
+
+    if ((window as any).__map) {
+      initCaptionClick();
+    } else {
+      document.addEventListener('mapready', () => initCaptionClick(), { once: true });
+    }
+
     // ---- Fade-in observer ----
     const cards = document.querySelectorAll<HTMLElement>('[data-card]');
     if (cards.length && 'IntersectionObserver' in window) {
@@ -229,12 +356,36 @@ const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
             }
           });
         },
-        { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+        { threshold: 0.05, rootMargin: '0px 0px -20px 0px' }
       );
       cards.forEach((c) => io.observe(c));
     } else {
       cards.forEach((c) => c.classList.add('is-visible'));
     }
+
+    // ---- Image expand → lightbox ----
+    // Single images: button has data-lightbox-src directly.
+    // Carousel: button reads the currently active slide's data-src.
+    document.querySelectorAll<HTMLElement>('[data-lightbox-src]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.dispatchEvent(new CustomEvent('lightbox:open', {
+          detail: { src: btn.dataset.lightboxSrc, alt: btn.dataset.lightboxAlt || '' },
+        }));
+      });
+    });
+
+    document.querySelectorAll<HTMLElement>('[data-expand-carousel]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const track = btn.closest('[data-scroller]')?.querySelector<HTMLElement>('[data-track]');
+        if (!track) return;
+        const idx = Math.round(track.scrollLeft / track.clientWidth);
+        const slide = track.querySelector<HTMLElement>(`[data-index="${idx}"]`);
+        if (!slide) return;
+        document.dispatchEvent(new CustomEvent('lightbox:open', {
+          detail: { src: slide.dataset.src, alt: slide.dataset.alt || '' },
+        }));
+      });
+    });
 
     // ---- Scroller dot sync + button nav ----
     const scrollers = document.querySelectorAll<HTMLElement>('[data-scroller]');
@@ -265,16 +416,12 @@ const cardStyle = delay > 0 ? `transition-delay: ${delay}ms;` : undefined;
       let raf = 0;
       track.addEventListener('scroll', () => {
         if (raf) return;
-        raf = requestAnimationFrame(() => {
-          raf = 0;
-          updateState();
-        });
+        raf = requestAnimationFrame(() => { raf = 0; updateState(); });
       });
 
       prevBtn?.addEventListener('click', () => scrollTo(Math.max(currentIndex() - 1, 0)));
       nextBtn?.addEventListener('click', () => scrollTo(Math.min(currentIndex() + 1, totalSlides - 1)));
 
-      // Arrow key nav when scroller is focused
       scroller.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowLeft') { e.preventDefault(); scrollTo(Math.max(currentIndex() - 1, 0)); }
         if (e.key === 'ArrowRight') { e.preventDefault(); scrollTo(Math.min(currentIndex() + 1, totalSlides - 1)); }

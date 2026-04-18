@@ -3,35 +3,27 @@ import countries from '../data/countries.json';
 import { TRIP_LENGTH_DAYS } from '../lib/dates';
 
 interface Props {
-  currentDay: number; // 1..62 (0 means nothing filled)
+  currentDay: number;
 }
 
 const { currentDay } = Astro.props;
 
-// Build segments: one per country, width proportional to days in that country.
 const segments = countries.map((c) => {
   const days = c.endDay - c.startDay + 1;
   const widthPct = (days / TRIP_LENGTH_DAYS) * 100;
 
-  // How much of this segment is "filled" by the current day?
   let fillPct = 0;
   if (currentDay >= c.endDay) fillPct = 100;
   else if (currentDay >= c.startDay) {
     fillPct = ((currentDay - c.startDay + 1) / days) * 100;
   }
 
-  return {
-    id: c.id,
-    name: c.name,
-    color: c.color,
-    widthPct,
-    fillPct,
-  };
+  return { id: c.id, name: c.name, color: c.color, widthPct, fillPct };
 });
 ---
 
-<section class="progress container" aria-label="Trip progress">
-  <div class="progress-bar" role="img" aria-label={`Day ${currentDay}`}>
+<section class="progress glass" aria-label="Trip progress">
+  <div class="progress-bar" role="img" aria-label={`Day ${currentDay} of ${TRIP_LENGTH_DAYS}`}>
     {segments.map((s) => (
       <div
         class="segment"
@@ -43,7 +35,7 @@ const segments = countries.map((c) => {
   </div>
   <div class="progress-labels">
     {segments.map((s) => (
-      <span class="label country-label" style={`color: ${s.color};`}>
+      <span class="country-label" style={`color: ${s.color};`}>
         {s.name}
       </span>
     ))}
@@ -55,23 +47,23 @@ const segments = countries.map((c) => {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    margin-top: 32px;
+    padding: 16px 20px;
   }
 
   .progress-bar {
     display: flex;
     width: 100%;
-    height: 4px;
+    height: 3px;
     border-radius: 2px;
     overflow: hidden;
-    background: var(--surface);
+    background: rgba(255, 255, 255, 0.06);
     gap: 2px;
   }
 
   .segment {
     position: relative;
     height: 100%;
-    background: var(--border);
+    background: rgba(255, 255, 255, 0.10);
     border-radius: 2px;
     overflow: hidden;
   }
@@ -90,7 +82,10 @@ const segments = countries.map((c) => {
 
   .country-label {
     font-size: 9px;
-    opacity: 0.85;
+    font-weight: 500;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    opacity: 0.80;
   }
 
   @media (max-width: 380px) {
