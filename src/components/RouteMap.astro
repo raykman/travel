@@ -72,8 +72,8 @@ const mapConfig = {
     class="map-ctrl-btn"
     type="button"
     aria-pressed="false"
-    aria-label="Enable map interaction"
-    title="Enable map interaction (off by default)"
+    aria-label="Lock map"
+    title="Lock map (disable drag & zoom)"
   >
     <!-- Lock icon (default: interaction off) -->
     <svg class="icon-locked" width="13" height="14" viewBox="0 0 13 14" fill="none" aria-hidden="true">
@@ -257,27 +257,48 @@ const mapConfig = {
     const allBounds = new mapboxgl.LngLatBounds();
     points.forEach((p: any) => allBounds.extend(p.geometry.coordinates));
 
+    // ---- Snap current position to nearest route stop ----
+    // Post days and route-stop days are independent integers and often don't
+    // match (e.g. post written on day 4 while the Niigata stop is day 5).
+    // Using the post day directly as the visited/future boundary leaves the
+    // pulsing marker at Niigata but the gold line ending one stop too early.
+    //
+    // Fix: when we have a real current location (live trip, posts exist),
+    // find the geographically nearest route stop and use ITS day as the
+    // effective boundary — so the gold line always ends at the same stop
+    // the pulsing dot sits on.
+    let effectiveDay = currentDay;
+    if (currentLngLat && currentDay > 0) {
+      const [curLng, curLat] = currentLngLat as [number, number];
+      let minDist = Infinity;
+      for (const p of points as any[]) {
+        const [lng, lat] = p.geometry.coordinates as [number, number];
+        const dist = (lng - curLng) ** 2 + (lat - curLat) ** 2;
+        if (dist < minDist) { minDist = dist; effectiveDay = p.properties.day; }
+      }
+    }
+
     const DAY_RANGE = 20;
-    const nearbyPoints = currentDay
+    const nearbyPoints = effectiveDay
       ? points.filter(
           (p: any) =>
-            p.properties.day >= currentDay - DAY_RANGE &&
-            p.properties.day <= currentDay + DAY_RANGE
+            p.properties.day >= effectiveDay - DAY_RANGE &&
+            p.properties.day <= effectiveDay + DAY_RANGE
         )
       : points;
     const initialBounds = new mapboxgl.LngLatBounds();
     nearbyPoints.forEach((p: any) => initialBounds.extend(p.geometry.coordinates));
 
     // ---- Map init ----
-    // interactive: false — programmatic flyTo works but user can't drag/zoom.
-    // This keeps page scrolling clean; scrollytelling drives the map.
+    // interactive: true — map is freely scrollable/draggable by default.
+    // The lock button in the controls disables interaction when pressed.
     const map = new mapboxgl.Map({
       container: mapEl,
       style: 'mapbox://styles/mapbox/dark-v11',
       bounds: initialBounds.isEmpty() ? allBounds : initialBounds,
       fitBoundsOptions: { padding: 100, duration: 0 },
-      interactive: false,
-      attributionControl: { compact: true },
+      interactive: true,
+      attributionControl: true,
     });
 
     // Expose for scrollytelling + reset button
@@ -303,11 +324,62 @@ const mapConfig = {
         });
       } catch (_) { /* style overrides are best-effort */ }
 
-      // ---- Departure flight arc (SF → Tokyo) ----
-      const departureFlight = routeFeatureByName('departure-flight');
+      // ---- Departure flight arc (SF → Tokyo) — smooth great-circle ----
+      // Generate a true great-circle arc with 80 segments so the curved path
+      // has no visible kinks. Longitudes are "unwrapped" past the antimeridian
+      // so Mapbox renders a continuous westward arc rather than jumping to +140.
+      function greatCircleArc(
+        start: [number, number],
+        end: [number, number],
+        numPts = 80
+      ): [number, number][] {
+        const D2R = Math.PI / 180;
+        const R2D = 180 / Math.PI;
+        const [lng1, lat1] = [start[0] * D2R, start[1] * D2R];
+        const [lng2, lat2] = [end[0] * D2R,   end[1] * D2R  ];
+        const x1 = Math.cos(lat1) * Math.cos(lng1), y1 = Math.cos(lat1) * Math.sin(lng1), z1 = Math.sin(lat1);
+        const x2 = Math.cos(lat2) * Math.cos(lng2), y2 = Math.cos(lat2) * Math.sin(lng2), z2 = Math.sin(lat2);
+        const dot = Math.min(1, Math.max(-1, x1*x2 + y1*y2 + z1*z2));
+        const theta = Math.acos(dot);
+        const sinT = Math.sin(theta);
+        const pts: [number, number][] = [];
+        let prevLng = start[0];
+        for (let i = 0; i <= numPts; i++) {
+          const t = i / numPts;
+          let x: number, y: number, z: number;
+          if (sinT < 1e-10) { x = x1; y = y1; z = z1; }
+          else {
+            const A = Math.sin((1 - t) * theta) / sinT;
+            const B = Math.sin(t * theta) / sinT;
+            x = A*x1 + B*x2; y = A*y1 + B*y2; z = A*z1 + B*z2;
+          }
+          const lat = Math.atan2(z, Math.sqrt(x*x + y*y)) * R2D;
+          let lng  = Math.atan2(y, x) * R2D;
+          // Unwrap: keep longitude continuous (no ±180 jumps)
+          while (lng - prevLng >  180) lng -= 360;
+          while (lng - prevLng < -180) lng += 360;
+          pts.push([lng, lat]);
+          prevLng = lng;
+        }
+        return pts;
+      }
+
       const flightIsVisited = currentDay > 0;
-      if (departureFlight) {
-        map.addSource('departure-flight', { type: 'geojson', data: departureFlight });
+      const firstStop = [...points].sort((a: any, b: any) => a.properties.day - b.properties.day)[0];
+
+      if (departurePoint && firstStop) {
+        const arcCoords = greatCircleArc(
+          departurePoint.geometry.coordinates as [number, number],
+          firstStop.geometry.coordinates   as [number, number],
+          80
+        );
+        const arcFeature = {
+          type: 'Feature' as const,
+          properties: {},
+          geometry: { type: 'LineString' as const, coordinates: arcCoords },
+        };
+
+        map.addSource('departure-flight', { type: 'geojson', data: arcFeature });
         map.addLayer({
           id: 'departure-flight',
           type: 'line',
@@ -327,7 +399,7 @@ const mapConfig = {
               const t = Math.min((now - startTime) / DURATION, 1);
               const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
               const drawn = Math.max(DASH_MAX * ease, 0.001);
-              const gap = Math.max(DASH_MAX - drawn, 0.001);
+              const gap   = Math.max(DASH_MAX - drawn, 0.001);
               try { map.setPaintProperty('departure-flight', 'line-dasharray', [drawn, gap]); } catch (_) {}
               if (t < 1) requestAnimationFrame(animateFlight);
             }
@@ -361,52 +433,63 @@ const mapConfig = {
       }
 
       // ---- Route lines ----
-      const routeFeature = routeFeatureByName('route');
-      const visited = points.filter((p: any) => p.properties.day <= currentDay);
-      const future = points.filter((p: any) => p.properties.day > currentDay);
+      // Two separate sources keep future (dotted gray) and visited (solid gold)
+      // visually distinct at all times — no shared layer that could bleed gold
+      // onto future segments.
+      const visited = points.filter((p: any) => p.properties.day <= effectiveDay);
+      const future  = points.filter((p: any) => p.properties.day > effectiveDay);
 
-      if (routeFeature) {
-        map.addSource('route-full', { type: 'geojson', data: routeFeature });
+      const byDay = (a: any, b: any) => a.properties.day - b.properties.day;
+      const visitedCoords = [...visited].sort(byDay).map((f: any) => f.geometry.coordinates);
+      const futureCoords  = [...future ].sort(byDay).map((f: any) => f.geometry.coordinates);
+
+      // Future dotted line — bridge from the last visited stop so there's no gap
+      const futureLine: [number, number][] = visitedCoords.length > 0
+        ? [visitedCoords[visitedCoords.length - 1], ...futureCoords]
+        : [...points].sort(byDay).map((f: any) => f.geometry.coordinates);
+
+      if (futureLine.length > 1) {
+        map.addSource('route-future', {
+          type: 'geojson',
+          data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: futureLine } },
+        });
         map.addLayer({
-          id: 'route-full',
+          id: 'route-future',
           type: 'line',
-          source: 'route-full',
+          source: 'route-future',
           paint: { 'line-color': '#505258', 'line-width': 1.8, 'line-dasharray': [3, 3] },
         });
+      }
 
-        if (visited.length > 1) {
-          const visitedCoords = visited
-            .slice()
-            .sort((a: any, b: any) => a.properties.day - b.properties.day)
-            .map((f: any) => f.geometry.coordinates);
-          map.addSource('route-visited', {
-            type: 'geojson',
-            data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: visitedCoords } },
-          });
-          map.addLayer({
-            id: 'route-visited',
-            type: 'line',
-            source: 'route-visited',
-            paint: { 'line-color': '#B8A88A', 'line-width': 2, 'line-dasharray': [0.001, 5000] },
-          });
+      // Visited solid gold line — animated draw-in
+      if (visitedCoords.length > 1) {
+        map.addSource('route-visited', {
+          type: 'geojson',
+          data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: visitedCoords } },
+        });
+        map.addLayer({
+          id: 'route-visited',
+          type: 'line',
+          source: 'route-visited',
+          paint: { 'line-color': '#B8A88A', 'line-width': 2, 'line-dasharray': [0.001, 5000] },
+        });
 
-          const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-          if (!prefersReduced) {
-            const DASH_MAX = 5000;
-            const DURATION = 3000;
-            const startTime = performance.now();
-            function animateRoute(now: number) {
-              const t = Math.min((now - startTime) / DURATION, 1);
-              const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-              const drawn = Math.max(DASH_MAX * ease, 0.001);
-              const gap = Math.max(DASH_MAX - drawn, 0.001);
-              try { map.setPaintProperty('route-visited', 'line-dasharray', [drawn, gap]); } catch (_) {}
-              if (t < 1) requestAnimationFrame(animateRoute);
-            }
-            requestAnimationFrame(animateRoute);
-          } else {
-            try { map.setPaintProperty('route-visited', 'line-dasharray', [5000, 0]); } catch (_) {}
+        const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!prefersReduced) {
+          const DASH_MAX = 5000;
+          const DURATION = 3000;
+          const startTime = performance.now();
+          function animateRoute(now: number) {
+            const t = Math.min((now - startTime) / DURATION, 1);
+            const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+            const drawn = Math.max(DASH_MAX * ease, 0.001);
+            const gap   = Math.max(DASH_MAX - drawn, 0.001);
+            try { map.setPaintProperty('route-visited', 'line-dasharray', [drawn, gap]); } catch (_) {}
+            if (t < 1) requestAnimationFrame(animateRoute);
           }
+          requestAnimationFrame(animateRoute);
+        } else {
+          try { map.setPaintProperty('route-visited', 'line-dasharray', [5000, 0]); } catch (_) {}
         }
       }
 
@@ -450,8 +533,8 @@ const mapConfig = {
         label.className = 'map-city-label';
         label.dataset.day = String(day);
         if (typeof day === 'number') {
-          if (day < currentDay) label.classList.add('visited');
-          else if (day === currentDay) label.classList.add('current');
+          if (day < effectiveDay)  label.classList.add('visited');
+          else if (day === effectiveDay) label.classList.add('current');
         }
         label.textContent = city;
 
@@ -490,9 +573,9 @@ const mapConfig = {
     });
 
     // ---- Map interaction toggle ----
-    // Default: interactive: false (map is driven by scrollytelling / flyTo).
-    // Toggle enables full drag/zoom for manual exploration.
-    let isInteractive = false;
+    // Default: interactive (drag/scroll/zoom freely).
+    // Lock button disables interaction so the page/sidebar can scroll unimpeded.
+    let isInteractive = true;
 
     function setMapInteractive(on: boolean) {
       isInteractive = on;
@@ -502,24 +585,27 @@ const mapConfig = {
       ];
       handlers.forEach((h) => { try { on ? h.enable() : h.disable(); } catch (_) {} });
 
-      // pointer-events: none on .map-base blocks all input to the canvas;
-      // must be toggled here or drag/scroll never reach Mapbox handlers.
-      const mapBase = mapEl.parentElement as HTMLElement | null;
+      // pointer-events: none on .map-base blocks all canvas input;
+      // must mirror the interactive state or drag/scroll never reach Mapbox.
+      // mapEl is guaranteed non-null here (guarded at IIFE entry), but TS
+      // can't track that through the closure — non-null assertion is safe.
+      const mapBase = mapEl!.parentElement as HTMLElement | null;
       if (mapBase) mapBase.style.pointerEvents = on ? 'auto' : 'none';
 
-      interactToggle?.setAttribute('aria-pressed', String(on));
+      // aria-pressed = true means the map is LOCKED (interaction off)
+      interactToggle?.setAttribute('aria-pressed', String(!on));
       interactToggle?.setAttribute(
-        'aria-label', on ? 'Disable map interaction' : 'Enable map interaction'
+        'aria-label', on ? 'Lock map' : 'Unlock map'
       );
       interactToggle?.setAttribute(
-        'title', on ? 'Disable map interaction' : 'Enable map interaction (off by default)'
+        'title', on ? 'Lock map (disable drag & zoom)' : 'Unlock map (enable drag & zoom)'
       );
 
       if (mapEl) mapEl.style.cursor = on ? 'grab' : '';
     }
 
-    // Ensure all handlers start disabled (belt-and-suspenders for interactive: false)
-    setMapInteractive(false);
+    // Start interactive (belt-and-suspenders alongside interactive: true)
+    setMapInteractive(true);
 
     interactToggle?.addEventListener('click', () => setMapInteractive(!isInteractive));
   })();
