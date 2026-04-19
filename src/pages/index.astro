@@ -16,12 +16,51 @@ import {
   TRIP_LENGTH_DAYS,
 } from '../lib/dates';
 import countries from '../data/countries.json';
+import routeData from '../data/route.json';
 
 const state = getTripState();
-const currentDay = state === 'pre' ? 0 : getCurrentDay();
+
+// calendarDay: real trip day from today's date — drives the progress bar & header.
+const calendarDay = state === 'pre' ? 0 : getCurrentDay();
 
 const posts = await getAllPosts();
 const latest = posts[0];
+
+// displayDay: the day of the nearest route stop to the latest post's
+// coordinates — the single source of truth for EVERYTHING that must
+// agree: header "Day X", gold visited-line boundary, city-label
+// "current" highlight, and pulsing location marker.
+//
+// Why nearest-stop snap (not raw post day)?
+//   Post days and route-stop days are independent integers; a post
+//   written on trip day 4 while physically at Niigata (stop day 5)
+//   would otherwise leave the header on "Day 4", the map gold line
+//   ending before Niigata, and the pulsing dot sitting at Niigata —
+//   three things disagreeing about the same location.
+const routeStops = (routeData as any).features.filter(
+  (f: any) => f.geometry.type === 'Point' && !f.properties.departure
+);
+
+let displayDay = 0;
+if (state === 'live') {
+  if (latest?.data.coordinates) {
+    // latest.data.coordinates is [lat, lng]; route stop is [lng, lat]
+    const [postLat, postLng] = latest.data.coordinates;
+    let minDist = Infinity;
+    for (const stop of routeStops) {
+      const [lng, lat] = stop.geometry.coordinates as [number, number];
+      const dist = (lng - postLng) ** 2 + (lat - postLat) ** 2;
+      if (dist < minDist) { minDist = dist; displayDay = stop.properties.day; }
+    }
+  } else {
+    // No posts yet — fall back to calendar day so the header still advances
+    displayDay = calendarDay;
+  }
+}
+
+// mapDay passed to RouteMap — client-side code snaps this to effectiveDay
+// via the same nearest-stop logic, keeping lines + marker in sync.
+const mapDay = state === 'pre' ? 0 : (latest?.data.day ?? 0);
 
 const latestCountry = latest
   ? countries.find((c) => c.id === latest.data.country)
@@ -29,7 +68,7 @@ const latestCountry = latest
 
 const headerLine =
   state === 'live'
-    ? `Day ${currentDay}`
+    ? `Day ${calendarDay}`
     : state === 'post'
       ? `${TRIP_LENGTH_DAYS} days · 5 countries`
       : '2026';
@@ -67,11 +106,17 @@ const postStats = state === 'post' && posts.length > 0 ? {
   <!-- Base layer: full-bleed fixed map -->
   <RouteMap
     currentCoordinates={state === 'pre' ? [37.7749, -122.4194] : (latest?.data.coordinates ?? null)}
-    currentDay={currentDay}
+    currentDay={mapDay}
   />
 
   <!-- Left sidebar — scrollable glass panel column -->
   <div class="scroll-layer" id="sidebar">
+
+    <!-- Mobile-only drag handle — tap to collapse the panel -->
+    <button class="panel-handle" id="panel-handle" aria-label="Collapse panel">
+      <span class="panel-handle-pill" aria-hidden="true"></span>
+      <span class="panel-handle-label" aria-hidden="true">Hide panel</span>
+    </button>
 
     <!-- Sticky header inside sidebar -->
     <header class="site-header glass" aria-label="Site header">
@@ -130,7 +175,7 @@ const postStats = state === 'post' && posts.length > 0 ? {
           </p>
         )}
 
-        <ProgressBar currentDay={currentDay} />
+        <ProgressBar currentDay={calendarDay} />
 
         {state === 'live' && <UpcomingSchedule />}
 
@@ -147,15 +192,16 @@ const postStats = state === 'post' && posts.length > 0 ? {
   <button
     id="sidebar-toggle"
     class="sidebar-toggle"
-    aria-label="Hide sidebar"
-    title="Hide sidebar"
+    aria-label="Hide panel"
+    title="Hide panel"
   >
-    <svg class="icon-collapse" width="10" height="14" viewBox="0 0 10 14" fill="none" aria-hidden="true">
-      <path d="M8 1L2 7l6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <svg class="icon-collapse" width="12" height="18" viewBox="0 0 10 14" fill="none" aria-hidden="true">
+      <path d="M8 1L2 7l6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
-    <svg class="icon-expand" width="10" height="14" viewBox="0 0 10 14" fill="none" aria-hidden="true">
-      <path d="M2 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <svg class="icon-expand" width="12" height="18" viewBox="0 0 10 14" fill="none" aria-hidden="true">
+      <path d="M2 1l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
+    <span class="toggle-label" aria-hidden="true">Show panel</span>
   </button>
 
   <!-- Back to top (scrolls sidebar) -->
@@ -168,16 +214,21 @@ const postStats = state === 'post' && posts.length > 0 ? {
 
 <!-- ─── Sidebar toggle ──────────────────────────────────────────────────────── -->
 <script>
-  const sidebar = document.getElementById('sidebar');
+  const sidebar   = document.getElementById('sidebar');
   const toggleBtn = document.getElementById('sidebar-toggle');
+  const handleBtn = document.getElementById('panel-handle');
 
   function setSidebarCollapsed(collapsed: boolean) {
     document.body.dataset.sidebarCollapsed = collapsed ? 'true' : '';
     if (toggleBtn) {
-      toggleBtn.setAttribute('aria-label', collapsed ? 'Show sidebar' : 'Hide sidebar');
-      toggleBtn.setAttribute('title', collapsed ? 'Show sidebar' : 'Hide sidebar');
+      toggleBtn.setAttribute('aria-label', collapsed ? 'Show panel' : 'Hide panel');
+      toggleBtn.setAttribute('title',      collapsed ? 'Show panel' : 'Hide panel');
     }
-    // Persist across page loads
+    if (handleBtn) {
+      const label = handleBtn.querySelector('.panel-handle-label');
+      if (label) label.textContent = collapsed ? 'Show panel' : 'Hide panel';
+      handleBtn.setAttribute('aria-label', collapsed ? 'Show panel' : 'Hide panel');
+    }
     try { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); } catch (_) {}
   }
 
@@ -188,6 +239,12 @@ const postStats = state === 'post' && posts.length > 0 ? {
   } catch (_) {}
 
   toggleBtn?.addEventListener('click', () => {
+    const isCollapsed = document.body.dataset.sidebarCollapsed === 'true';
+    setSidebarCollapsed(!isCollapsed);
+  });
+
+  // Mobile panel handle triggers same collapse toggle
+  handleBtn?.addEventListener('click', () => {
     const isCollapsed = document.body.dataset.sidebarCollapsed === 'true';
     setSidebarCollapsed(!isCollapsed);
   });
@@ -306,6 +363,11 @@ const postStats = state === 'post' && posts.length > 0 ? {
 </script>
 
 <style>
+  /* ── Mobile panel handle (hidden on desktop) ── */
+  .panel-handle {
+    display: none;
+  }
+
   /* ── Sidebar (scroll-layer) ── */
   .scroll-layer {
     position: fixed;
@@ -339,38 +401,166 @@ const postStats = state === 'post' && posts.length > 0 ? {
     left: var(--sidebar-w);
     top: 50%;
     transform: translateY(-50%);
-    width: 20px;
-    height: 48px;
+    width: 28px;
+    height: 72px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(20, 20, 20, 0.72);
+    background: rgba(28, 28, 28, 0.88);
     backdrop-filter: blur(20px) saturate(160%);
     -webkit-backdrop-filter: blur(20px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.16);
     border-left: none;
-    border-radius: 0 8px 8px 0;
-    color: var(--text-tertiary);
+    /* Accent right-edge stripe so it reads clearly as a tab */
+    box-shadow: inset -2px 0 0 rgba(184, 168, 138, 0.35);
+    border-radius: 0 10px 10px 0;
+    color: var(--text-secondary);
     cursor: pointer;
     z-index: 25;
-    transition: left 350ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms ease;
+    transition:
+      left       350ms cubic-bezier(0.4, 0, 0.2, 1),
+      color      150ms ease,
+      background 150ms ease,
+      box-shadow 150ms ease;
   }
 
   .sidebar-toggle:hover {
-    color: var(--text);
+    color: var(--accent);
+    background: rgba(40, 38, 34, 0.96);
+    box-shadow: inset -2px 0 0 var(--accent);
   }
 
-  /* When collapsed, toggle moves to left edge of screen */
+  /* When collapsed: tab moves to the left edge and flips the accent stripe */
   body[data-sidebar-collapsed='true'] .sidebar-toggle {
     left: 0;
-    border-left: 1px solid rgba(255, 255, 255, 0.10);
-    border-radius: 0 8px 8px 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.16);
+    border-right: none;
+    border-radius: 0 10px 10px 0;
+    box-shadow: inset 2px 0 0 rgba(184, 168, 138, 0.35);
+  }
+
+  body[data-sidebar-collapsed='true'] .sidebar-toggle:hover {
+    box-shadow: inset 2px 0 0 var(--accent);
   }
 
   /* Swap chevron direction */
   .icon-expand { display: none; }
   body[data-sidebar-collapsed='true'] .icon-collapse { display: none; }
   body[data-sidebar-collapsed='true'] .icon-expand   { display: block; }
+
+  /* Toggle label text — hidden on desktop, shown on mobile FAB */
+  .toggle-label { display: none; }
+
+  /* ════════════════════════════════════════════════════════
+     MOBILE LAYOUT  (≤ 767 px)
+     Sidebar becomes a bottom-sheet that slides up from the
+     bottom of the screen. The side-tab toggle is replaced
+     by a full-width handle bar at the top of the sheet, and
+     a floating "Show panel" pill when the sheet is closed.
+     ════════════════════════════════════════════════════════ */
+  @media (max-width: 767px) {
+    :root { --sidebar-w: 100vw; }
+
+    /* ── Bottom sheet ── */
+    .scroll-layer {
+      top: auto;
+      bottom: 0;
+      left: 0;
+      width: 100vw;
+      height: 62vh;
+      min-height: 300px;
+      border-radius: 20px 20px 0 0;
+      padding: 0 10px 10px;
+      gap: 6px;
+      /* Override desktop translateX with translateY */
+      transform: translateY(0);
+    }
+
+    body[data-sidebar-collapsed='true'] .scroll-layer {
+      transform: translateY(100%);
+    }
+
+    /* ── Panel handle — visible tap target at top of sheet ── */
+    .panel-handle {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      min-height: 48px;
+      flex-shrink: 0;
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: var(--text-tertiary);
+      padding: 10px 0 4px;
+    }
+
+    .panel-handle:active { opacity: 0.7; }
+
+    .panel-handle-pill {
+      display: block;
+      width: 40px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .panel-handle-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* ── Desktop side-tab replaced by a floating FAB ── */
+    .sidebar-toggle {
+      /* When panel is visible: hidden (handle takes over) */
+      display: none;
+      left: 50% !important;
+      top: auto !important;
+      bottom: calc(62vh + 12px);
+      transform: translateX(-50%) !important;
+      width: auto;
+      min-width: 130px;
+      height: 44px;
+      padding: 0 18px;
+      border-radius: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-left: 1px solid rgba(255, 255, 255, 0.14);
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary);
+      transition: opacity 200ms ease, color 150ms ease;
+    }
+
+    /* Show FAB only when panel is collapsed */
+    body[data-sidebar-collapsed='true'] .sidebar-toggle {
+      display: flex;
+      bottom: 24px;
+      left: 50% !important;
+      /* Ensure it's above map controls */
+    }
+
+    /* On mobile, always show the expand chevron + label text */
+    .sidebar-toggle .icon-collapse { display: none !important; }
+    .sidebar-toggle .icon-expand   { display: block !important; }
+    .sidebar-toggle .toggle-label  { display: inline; }
+
+    /* ── Back-to-top: keep above sheet ── */
+    .back-to-top {
+      bottom: calc(62vh + 12px);
+      right: 16px;
+    }
+    body[data-sidebar-collapsed='true'] .back-to-top {
+      bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    }
+  }
 
   /* ── Sticky glass header ── */
   .site-header {
