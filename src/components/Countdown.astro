@@ -1,6 +1,8 @@
 ---
 import { getDaysUntilStart, TRIP_START } from '../lib/dates';
 
+// Server-side value — used as the initial render, then immediately
+// overwritten by the client script so stale static builds stay accurate.
 const days = getDaysUntilStart();
 
 const startLabel = TRIP_START.toLocaleDateString('en-US', {
@@ -11,14 +13,45 @@ const startLabel = TRIP_START.toLocaleDateString('en-US', {
 });
 ---
 
-<section class="countdown glass" aria-label="Countdown to trip">
+<section
+  class="countdown glass"
+  aria-label="Countdown to trip"
+  data-trip-start={TRIP_START.getTime().toString()}
+>
   <span class="label countdown-label">Departing in</span>
   <p class="countdown-number">
-    {days}
-    <span class="countdown-unit">{days === 1 ? 'day' : 'days'}</span>
+    <span id="countdown-days">{days}</span>
+    <span id="countdown-unit" class="countdown-unit">{days === 1 ? 'day' : 'days'}</span>
   </p>
   <span class="countdown-date">{startLabel}</span>
 </section>
+
+<script>
+  // Recalculate on every page load so the number is always correct
+  // regardless of when the static build ran.
+  (function () {
+    const section = document.querySelector<HTMLElement>('[data-trip-start]');
+    if (!section) return;
+    const tripStartMs = parseInt(section.dataset.tripStart ?? '0', 10);
+
+    function daysRemaining(): number {
+      const now = new Date();
+      const todayMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      const d = new Date(tripStartMs);
+      const startMidnight = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+      const wholeDays = Math.round((startMidnight - todayMidnight) / 86_400_000);
+      return Math.max(0, wholeDays + 1); // inclusive of today and departure day
+    }
+
+    const daysEl = document.getElementById('countdown-days');
+    const unitEl = document.getElementById('countdown-unit');
+    if (!daysEl || !unitEl) return;
+
+    const d = daysRemaining();
+    daysEl.textContent = String(d);
+    unitEl.textContent = d === 1 ? 'day' : 'days';
+  })();
+</script>
 
 <style>
   .countdown {

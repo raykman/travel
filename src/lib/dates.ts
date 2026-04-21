@@ -35,11 +35,22 @@ export function getCurrentDay(at: Date = now()): number {
   return Math.max(1, Math.min(TRIP_LENGTH_DAYS, day));
 }
 
-/** Integer days until trip start (0 if already started). */
+/**
+ * Calendar days until trip start, inclusive of today and the departure day.
+ * e.g. today = Apr 20, departure = Apr 30 → 11 days.
+ * Normalises both dates to midnight UTC so time-of-day never affects the count.
+ * Returns 0 once the trip has started.
+ */
 export function getDaysUntilStart(at: Date = now()): number {
-  const ms = TRIP_START.getTime() - at.getTime();
-  if (ms <= 0) return 0;
-  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+  const todayMidnight = Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate());
+  const startMidnight = Date.UTC(
+    TRIP_START.getUTCFullYear(),
+    TRIP_START.getUTCMonth(),
+    TRIP_START.getUTCDate(),
+  );
+  const wholeDays = Math.round((startMidnight - todayMidnight) / (1000 * 60 * 60 * 24));
+  if (wholeDays <= 0) return 0;
+  return wholeDays + 1; // +1: counts both today and the departure day
 }
 
 /** Progress 0..1 through the trip. */
