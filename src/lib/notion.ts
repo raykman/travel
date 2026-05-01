@@ -56,9 +56,9 @@ export interface NotionPost {
   body: string;
 }
 
-const API_KEY = import.meta.env.NOTION_API_KEY;
-const SCHEDULE_DB_ID = import.meta.env.NOTION_SCHEDULE_DB_ID;
-const POSTS_DB_ID = import.meta.env.NOTION_POSTS_DB_ID;
+const API_KEY = import.meta.env.NOTION_API_KEY ?? process.env.NOTION_API_KEY;
+const SCHEDULE_DB_ID = import.meta.env.NOTION_SCHEDULE_DB_ID ?? process.env.NOTION_SCHEDULE_DB_ID;
+const POSTS_DB_ID = import.meta.env.NOTION_POSTS_DB_ID ?? process.env.NOTION_POSTS_DB_ID;
 
 const NOTION_VERSION = '2022-06-28';
 
@@ -307,6 +307,7 @@ export async function getUpcoming(): Promise<UpcomingEntry[]> {
  * to local markdown posts.
  */
 export async function getNotionPosts(): Promise<NotionPost[]> {
+  console.log(`[notion] API_KEY set: ${!!API_KEY}, POSTS_DB_ID set: ${!!POSTS_DB_ID}`);
   if (!API_KEY || !POSTS_DB_ID) return [];
 
   try {
@@ -320,6 +321,7 @@ export async function getNotionPosts(): Promise<NotionPost[]> {
       sorts: [{ property: 'Date', direction: 'descending' }],
     });
 
+    console.log(`[notion] Query returned ${res.results?.length ?? 0} published posts`);
     const posts: NotionPost[] = [];
     for (const page of res.results as any[]) {
       const props = page.properties ?? {};
