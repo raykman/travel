@@ -147,7 +147,13 @@ function richTextToPlain(segments: any[]): string {
 // own copy. The filename is a hash of the Notion block ID (stable across
 // rebuilds as long as the image hasn't changed).
 
-const UPLOADS_DIR = join(process.cwd(), 'public', 'uploads');
+// During `astro build`, public/ is copied to dist/ before static routes run,
+// so files written to public/uploads/ at route-generation time are missed.
+// Write directly to dist/uploads/ in production; public/uploads/ in dev
+// (where the dev server serves public/ directly).
+const UPLOADS_DIR = import.meta.env.PROD
+  ? join(process.cwd(), 'dist', 'uploads')
+  : join(process.cwd(), 'public', 'uploads');
 
 /** Guess file extension from Content-Type header or URL path. */
 function guessExt(contentType: string | null, url: string): string {
