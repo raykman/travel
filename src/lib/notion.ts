@@ -221,6 +221,7 @@ async function fetchPageContent(notion: Client, pageId: string): Promise<PageCon
   const result: PageContent = { body: '', images: [] };
   try {
     const res = await notion.blocks.children.list({ block_id: pageId, page_size: 100 });
+    console.log(`[notion] Page ${pageId}: fetched ${res.results?.length ?? 0} blocks`);
     const lines: string[] = [];
     for (const block of res.results as any[]) {
       const t = block.type;
@@ -239,8 +240,10 @@ async function fetchPageContent(notion: Client, pageId: string): Promise<PageCon
         lines.push(richTextToPlain(block.numbered_list_item.rich_text));
       } else if (t === 'image') {
         const srcUrl = getImageUrl(block);
+        console.log(`[notion] Image block ${block.id}: srcUrl=${srcUrl ? 'found' : 'null'}`);
         if (srcUrl) {
           const localPath = await downloadImage(srcUrl, block.id);
+          console.log(`[notion] Image block ${block.id}: localPath=${localPath ?? 'null'}`);
           if (localPath) {
             result.images.push({
               url: localPath,
