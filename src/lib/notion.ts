@@ -345,6 +345,7 @@ export async function getNotionPosts(): Promise<NotionPost[]> {
       const imageAlt = extractText(props['Image Alt']);
 
       // Skip incomplete entries
+      console.log(`[notion] Post "${title || page.id}": title=${!!title} date=${!!dateStr} day=${day} location=${!!location} lat=${lat} lng=${lng}`);
       if (!title || !dateStr || day === null || !location) continue;
       if (lat === null || lng === null) continue;
 
