@@ -369,7 +369,10 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
     document.querySelectorAll<HTMLElement>('[data-lightbox-src]').forEach((btn) => {
       btn.addEventListener('click', () => {
         document.dispatchEvent(new CustomEvent('lightbox:open', {
-          detail: { src: btn.dataset.lightboxSrc, alt: btn.dataset.lightboxAlt || '' },
+          detail: {
+            images: [{ src: btn.dataset.lightboxSrc!, alt: btn.dataset.lightboxAlt || '' }],
+            index: 0,
+          },
         }));
       });
     });
@@ -379,10 +382,10 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
         const track = btn.closest('[data-scroller]')?.querySelector<HTMLElement>('[data-track]');
         if (!track) return;
         const idx = Math.round(track.scrollLeft / track.clientWidth);
-        const slide = track.querySelector<HTMLElement>(`[data-index="${idx}"]`);
-        if (!slide) return;
+        const allSlides = Array.from(track.querySelectorAll<HTMLElement>('[data-index]'));
+        const images = allSlides.map((s) => ({ src: s.dataset.src!, alt: s.dataset.alt || '' }));
         document.dispatchEvent(new CustomEvent('lightbox:open', {
-          detail: { src: slide.dataset.src, alt: slide.dataset.alt || '' },
+          detail: { images, index: idx },
         }));
       });
     });
