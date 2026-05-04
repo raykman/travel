@@ -236,7 +236,10 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
     scroll-snap-type: x mandatory;
     scrollbar-width: none;
     -ms-overflow-style: none;
-    scroll-behavior: smooth;
+    /* scroll-behavior intentionally omitted — iOS Safari treats direct scrollLeft
+       assignments as smooth animations when this property is set, preventing the
+       slide-0 reset from taking effect. All JS scrollTo() calls already pass
+       behavior:'smooth' explicitly, so this is safe to drop. */
   }
 
   .scroller-track::-webkit-scrollbar {
@@ -417,6 +420,8 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
 
     // ---- Scroller dot sync + button nav ----
     const scrollers = document.querySelectorAll<HTMLElement>('[data-scroller]');
+    const allTracks: HTMLElement[] = [];
+
     scrollers.forEach((scroller) => {
       const track = scroller.querySelector<HTMLElement>('.scroller-track');
       const dots = scroller.querySelectorAll<HTMLElement>('[data-dot-index]');
@@ -442,8 +447,10 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
         track!.scrollTo({ left: idx * track!.clientWidth, behavior: 'smooth' });
       }
 
-      // Always start at slide 0 — prevents bfcache scroll restoration from resuming mid-carousel
+      // Always start at slide 0 — without scroll-behavior:smooth in CSS this is
+      // an instant jump on all browsers including iOS Safari.
       track.scrollLeft = 0;
+      allTracks.push(track);
 
       let raf = 0;
       track.addEventListener('scroll', () => {
@@ -460,6 +467,13 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
       });
 
       updateState();
+    });
+
+    // iOS Safari restores element scroll positions asynchronously on bfcache
+    // navigation, overriding the scrollLeft=0 set above. Re-reset on pageshow.
+    window.addEventListener('pageshow', (e) => {
+      if (!(e as PageTransitionEvent).persisted) return;
+      allTracks.forEach((t) => { t.scrollLeft = 0; });
     });
   })();
 </script>
