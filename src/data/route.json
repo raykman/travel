@@ -28,8 +28,8 @@
     },
     {
       "type": "Feature",
-      "properties": { "city": "Okinawa", "country": "japan", "day": 19 },
-      "geometry": { "type": "Point", "coordinates": [127.6809, 26.3344] }
+      "properties": { "city": "Naha", "country": "japan", "day": 19 },
+      "geometry": { "type": "Point", "coordinates": [127.6792, 26.2124] }
     },
     {
       "type": "Feature",
@@ -120,7 +120,7 @@
           [139.0233, 37.9026],
           [141.3545, 43.0618],
           [135.1956, 34.6901],
-          [127.6809, 26.3344],
+          [127.6792, 26.2124],
           [105.8542, 21.0285],
           [108.338, 15.8801],
           [106.6297, 10.8231],
