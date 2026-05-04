@@ -78,6 +78,17 @@ const buildTime = new Date().toLocaleDateString('en-US', {
   timeZone: 'Asia/Bangkok',
 });
 
+// Post pin data for the map — one entry per published post.
+// lngLat is [lng, lat] (Mapbox convention); coordinates in posts are [lat, lng].
+// cardId matches the id set on each <article> in PhotoCard so clicking a pin
+// can scroll the sidebar directly to that card.
+const postPins = posts.map((p) => ({
+  lngLat: [p.data.coordinates[1], p.data.coordinates[0]] as [number, number],
+  day: p.data.day,
+  title: p.data.title,
+  cardId: `pc-${p.data.day}-${p.data.location.toLowerCase().replace(/\s+/g, '-')}`,
+}));
+
 const postStats = state === 'post' && posts.length > 0 ? {
   count: posts.length,
   countryCount: new Set(posts.map((p) => p.data.country)).size,
@@ -107,6 +118,7 @@ const postStats = state === 'post' && posts.length > 0 ? {
   <RouteMap
     currentCoordinates={state === 'pre' ? [37.7749, -122.4194] : (latest?.data.coordinates ?? null)}
     currentDay={mapDay}
+    postPins={postPins}
   />
 
   <!-- Left sidebar — scrollable glass panel column -->
