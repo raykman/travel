@@ -3,6 +3,11 @@
 
 import { getCollection } from 'astro:content';
 import { getNotionPosts } from './notion';
+import type { PostImage } from './imageVariants';
+
+// Markdown posts only have url+alt; Notion posts carry full variant URLs + LQIP.
+// thumbUrl/mediumUrl/lqip are optional so markdown posts don't need changes.
+export type PostImageEntry = Pick<PostImage, 'url' | 'alt'> & Partial<Pick<PostImage, 'thumbUrl' | 'mediumUrl' | 'lqip'>>;
 
 export interface Post {
   id: string;
@@ -13,7 +18,7 @@ export interface Post {
     location: string;
     country: string;
     coordinates: [number, number];
-    images: Array<{ url: string; alt: string }>;
+    images: PostImageEntry[];
   };
   body: string;
 }

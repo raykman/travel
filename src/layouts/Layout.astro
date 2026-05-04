@@ -223,10 +223,25 @@ const {
 
     function show(index) {
       lbIndex = index;
-      const { src, alt } = lbImages[lbIndex];
-      img.src = src;
+      const { src, thumbSrc, alt } = lbImages[lbIndex];
       img.alt = alt || '';
+
+      // Show the thumb immediately (already in cache — card was visible), then
+      // silently fetch full-res and swap once it's ready.
+      const displaySrc = thumbSrc || src;
+      img.src = displaySrc;
       updateNav();
+
+      if (src && src !== displaySrc) {
+        const full = new window.Image();
+        full.onload = () => {
+          // Guard: user may have navigated to a different slide while loading.
+          if (lbImages[lbIndex] && lbImages[lbIndex].src === src) {
+            img.src = src;
+          }
+        };
+        full.src = src;
+      }
     }
 
     function open(images, index) {
@@ -235,6 +250,14 @@ const {
       show(index);
       lb.removeAttribute('hidden');
       document.body.style.overflow = 'hidden';
+
+      // Preload adjacent full-res images so prev/next feel instant.
+      [index - 1, index + 1].forEach((i) => {
+        if (i >= 0 && i < lbImages.length && lbImages[i].src) {
+          const pre = new window.Image();
+          pre.src = lbImages[i].src;
+        }
+      });
     }
 
     function close() {
@@ -246,7 +269,7 @@ const {
 
     // Triggered by PhotoCard expand buttons
     document.addEventListener('lightbox:open', (e) => {
-      const images = e.detail.images || [{ src: e.detail.src, alt: e.detail.alt || '' }];
+      const images = e.detail.images || [{ src: e.detail.src, thumbSrc: '', alt: e.detail.alt || '' }];
       open(images, e.detail.index ?? 0);
     });
 

@@ -1,12 +1,13 @@
 ---
 import countries from '../data/countries.json';
+import type { PostImageEntry } from '../lib/posts';
 
 interface Props {
   day: number;
   location: string;
   title: string;
   caption: string;
-  images: { url: string; alt: string }[];
+  images: PostImageEntry[];
   index?: number;
   country?: string;
   // [lat, lng] from post data — converted to "lng,lat" for Mapbox in data-lnglat
@@ -25,8 +26,10 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
 ---
 
 <article
+  id={cardId}
   class="photo-card fade-in"
   data-card
+  data-day={day}
   style={cardStyle}
   {...lngLat ? { 'data-lnglat': lngLat } : {}}
 >
@@ -48,12 +51,19 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
                 class="scroller-slide"
                 data-index={i}
                 data-src={img.url}
+                data-thumb-src={img.thumbUrl ?? img.url}
                 data-alt={img.alt}
                 role="group"
                 aria-roledescription="slide"
                 aria-label={`Image ${i + 1} of ${images.length}`}
               >
-                <img src={img.url} alt={img.alt} loading="lazy" decoding="async" />
+                <img
+                  src={img.thumbUrl ?? img.url}
+                  alt={img.alt}
+                  loading="lazy"
+                  decoding="async"
+                  style={img.lqip ? `background-image:url('${img.lqip}');background-size:cover` : undefined}
+                />
               </div>
             ))}
           </div>
@@ -81,11 +91,18 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
         </div>
       ) : (
         <div class="single">
-          <img src={images[0].url} alt={images[0].alt} loading="lazy" decoding="async" />
+          <img
+            src={images[0].thumbUrl ?? images[0].url}
+            alt={images[0].alt}
+            loading="lazy"
+            decoding="async"
+            style={images[0].lqip ? `background-image:url('${images[0].lqip}');background-size:cover` : undefined}
+          />
           <!-- Expand to lightbox -->
           <button
             class="img-expand-btn"
             data-lightbox-src={images[0].url}
+            data-lightbox-thumb-src={images[0].thumbUrl ?? images[0].url}
             data-lightbox-alt={images[0].alt}
             aria-label="View fullscreen"
           >
@@ -370,7 +387,11 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
       btn.addEventListener('click', () => {
         document.dispatchEvent(new CustomEvent('lightbox:open', {
           detail: {
-            images: [{ src: btn.dataset.lightboxSrc!, alt: btn.dataset.lightboxAlt || '' }],
+            images: [{
+              src:      btn.dataset.lightboxSrc!,
+              thumbSrc: btn.dataset.lightboxThumbSrc || btn.dataset.lightboxSrc!,
+              alt:      btn.dataset.lightboxAlt || '',
+            }],
             index: 0,
           },
         }));
@@ -383,7 +404,11 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
         if (!track) return;
         const idx = Math.round(track.scrollLeft / track.clientWidth);
         const allSlides = Array.from(track.querySelectorAll<HTMLElement>('[data-index]'));
-        const images = allSlides.map((s) => ({ src: s.dataset.src!, alt: s.dataset.alt || '' }));
+        const images = allSlides.map((s) => ({
+          src:      s.dataset.src!,
+          thumbSrc: s.dataset.thumbSrc || s.dataset.src!,
+          alt:      s.dataset.alt || '',
+        }));
         document.dispatchEvent(new CustomEvent('lightbox:open', {
           detail: { images, index: idx },
         }));
@@ -402,6 +427,7 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
       const totalSlides = scroller.querySelectorAll('[data-index]').length;
 
       function currentIndex() {
+        if (!track!.clientWidth) return 0;
         return Math.round(track!.scrollLeft / track!.clientWidth);
       }
 
@@ -415,6 +441,9 @@ const lngLat = coordinates ? `${coordinates[1]},${coordinates[0]}` : undefined;
       function scrollTo(idx: number) {
         track!.scrollTo({ left: idx * track!.clientWidth, behavior: 'smooth' });
       }
+
+      // Always start at slide 0 — prevents bfcache scroll restoration from resuming mid-carousel
+      track.scrollLeft = 0;
 
       let raf = 0;
       track.addEventListener('scroll', () => {

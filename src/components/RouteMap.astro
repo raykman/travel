@@ -1,12 +1,20 @@
 ---
 import routeData from '../data/route.json';
 
+interface PostPin {
+  lngLat: [number, number]; // [lng, lat] — Mapbox convention
+  day: number;
+  title: string;
+  cardId: string; // matches the id on the <article> in PhotoCard
+}
+
 interface Props {
   currentCoordinates?: [number, number] | null; // [lat, lng] from latest post
   currentDay?: number;
+  postPins?: PostPin[];
 }
 
-const { currentCoordinates = null, currentDay = 0 } = Astro.props;
+const { currentCoordinates = null, currentDay = 0, postPins = [] } = Astro.props;
 
 const MAPBOX_TOKEN = import.meta.env.PUBLIC_MAPBOX_TOKEN || '';
 
@@ -20,6 +28,7 @@ const mapConfig = {
   routeData,
   currentLngLat,
   currentDay,
+  postPins,
 };
 ---
 
@@ -213,6 +222,28 @@ const mapConfig = {
   :global(.mapboxgl-ctrl-attrib) {
     opacity: 0.25;
   }
+
+  /* ---- Post-pin hover popup ---- */
+  :global(.post-pin-popup .mapboxgl-popup-content) {
+    background: rgba(18, 18, 17, 0.88);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 6px;
+    padding: 5px 10px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 11px;
+    font-family: system-ui, sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  :global(.post-pin-popup .mapboxgl-popup-tip) {
+    display: none;
+  }
 </style>
 
 <script>
@@ -232,7 +263,7 @@ const mapConfig = {
       console.error('[RouteMap] failed to parse config', e);
       return;
     }
-    const { token: MAPBOX_TOKEN, routeData, currentLngLat, currentDay } = cfg;
+    const { token: MAPBOX_TOKEN, routeData, currentLngLat, currentDay, postPins = [] } = cfg;
 
     if (!MAPBOX_TOKEN) {
       mapEl.innerHTML =
@@ -507,6 +538,100 @@ const mapConfig = {
         map.addLayer({
           id: 'stops-visited', type: 'circle', source: 'stops-visited',
           paint: { 'circle-radius': 4, 'circle-color': '#B8A88A', 'circle-opacity': 0.75 },
+        });
+      }
+
+      // ---- Post-location pins ----
+      // One pin per published post. Clicking scrolls the sidebar to that card;
+      // the IntersectionObserver in index.astro then fires flyTo naturally.
+      //
+      // OPTION A — circle layer (active).
+      // OPTION C — symbol layer with a custom icon: swap the addLayer call below
+      //   for the scaffold in the comment at the bottom of this block.  The
+      //   source and all event handlers are identical for both options.
+      if (postPins.length > 0) {
+        const pinFeatures = postPins.map((pin: any) => ({
+          type: 'Feature' as const,
+          geometry: { type: 'Point' as const, coordinates: pin.lngLat },
+          properties: { day: pin.day, title: pin.title, cardId: pin.cardId },
+        }));
+
+        map.addSource('post-pins', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: pinFeatures },
+        });
+
+        // OPTION A — circle layer
+        map.addLayer({
+          id: 'post-pins-layer',
+          type: 'circle',
+          source: 'post-pins',
+          paint: {
+            'circle-radius': 4,
+            'circle-color': 'rgba(255, 255, 255, 0.70)',
+            'circle-stroke-width': 1.5,
+            'circle-stroke-color': 'rgba(255, 255, 255, 0.20)',
+          },
+        });
+
+        // OPTION C — custom icon layer (uncomment + comment out OPTION A above):
+        // Requires an icon image registered via map.addImage() before addLayer.
+        // Steps:
+        //   1. Add your icon to public/map-pin.png (recommended: 32×32 or 48×48 @2x)
+        //   2. Load it:
+        //        map.loadImage('/map-pin.png', (err, img) => {
+        //          if (!err && img) map.addImage('post-pin-icon', img);
+        //          addPinLayer();  // move addLayer into a callback here
+        //        });
+        //   3. Replace OPTION A addLayer with:
+        //        map.addLayer({
+        //          id: 'post-pins-layer',
+        //          type: 'symbol',
+        //          source: 'post-pins',
+        //          layout: {
+        //            'icon-image': 'post-pin-icon',
+        //            'icon-size': ['interpolate', ['linear'], ['zoom'], 6, 0.4, 12, 0.7],
+        //            'icon-allow-overlap': true,
+        //            'icon-anchor': 'bottom',
+        //          },
+        //        });
+        // The source, click handler, hover handler, and popup below need no changes.
+
+        // Click → scroll sidebar card into view.
+        // The card's IntersectionObserver fires naturally as it enters the viewport,
+        // which triggers the existing scrollytelling flyTo — no extra code needed.
+        map.on('click', 'post-pins-layer', (e: any) => {
+          const cardId = e.features?.[0]?.properties?.cardId;
+          if (!cardId) return;
+          const card = document.getElementById(cardId);
+          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+
+        // Hover → pointer cursor + title popup
+        let pinPopup: mapboxgl.Popup | null = null;
+
+        map.on('mouseenter', 'post-pins-layer', (e: any) => {
+          map.getCanvas().style.cursor = 'pointer';
+          const feature = e.features?.[0];
+          if (!feature) return;
+          const title: string = feature.properties?.title ?? '';
+          const coords = (feature.geometry as any).coordinates.slice() as [number, number];
+          pinPopup?.remove();
+          pinPopup = new mapboxgl.Popup({
+            closeButton: false,
+            closeOnClick: false,
+            offset: 10,
+            className: 'post-pin-popup',
+          })
+            .setLngLat(coords)
+            .setHTML(`<span>${title}</span>`)
+            .addTo(map);
+        });
+
+        map.on('mouseleave', 'post-pins-layer', () => {
+          map.getCanvas().style.cursor = '';
+          pinPopup?.remove();
+          pinPopup = null;
         });
       }
 

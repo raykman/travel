@@ -10,4 +10,14 @@ export default defineConfig({
   devToolbar: {
     enabled: false,
   },
+  vite: {
+    // sharp is a native Node addon — exclude from Vite's bundler so it loads
+    // correctly in both dev (SSR) and production build contexts.
+    ssr: {
+      external: ['sharp'],
+    },
+    optimizeDeps: {
+      exclude: ['sharp'],
+    },
+  },
 });

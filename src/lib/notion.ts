@@ -31,8 +31,9 @@
 
 import { Client } from '@notionhq/client';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { generateVariants, type PostImage } from './imageVariants';
 
 export interface UpcomingEntry {
   id: string;
@@ -51,7 +52,7 @@ export interface NotionPost {
     location: string;
     country: string;
     coordinates: [number, number];
-    images: Array<{ url: string; alt: string }>;
+    images: PostImage[];
   };
   body: string;
 }
@@ -169,16 +170,20 @@ function guessExt(contentType: string | null, url: string): string {
 }
 
 /**
- * Download an image from a URL and save it to public/uploads/.
- * Returns the public path (e.g. "/uploads/abc123.jpg") or null on failure.
- * Uses blockId as a stable cache key so the same Notion image block always
- * maps to the same filename. Re-downloads if the file doesn't exist (e.g.
- * after a clean build) since the signed URL changes every time anyway.
+ * Downloads an image and generates three WebP variants (thumb / medium / full)
+ * plus an inline LQIP.  The cacheKey is a stable identifier (Notion block ID or
+ * a synthetic key for property images) so filenames are consistent across builds.
+ * Returns null on download failure; variant generation failures fall back
+ * gracefully to the original file.
  */
-async function downloadImage(srcUrl: string, blockId: string): Promise<string | null> {
+async function downloadAndOptimize(
+  srcUrl: string,
+  cacheKey: string,
+  alt: string,
+): Promise<PostImage | null> {
   try {
     mkdirSync(UPLOADS_DIR, { recursive: true });
-    const hash = createHash('sha256').update(blockId).digest('hex').slice(0, 16);
+    const hash = createHash('sha256').update(cacheKey).digest('hex').slice(0, 16);
 
     const resp = await fetch(srcUrl);
     if (!resp.ok) {
@@ -186,14 +191,16 @@ async function downloadImage(srcUrl: string, blockId: string): Promise<string | 
       return null;
     }
 
+    // Always persist the original as a fallback alongside the WebP variants.
     const contentType = resp.headers.get('content-type');
     const ext = guessExt(contentType, srcUrl);
-    const filename = `${hash}${ext}`;
-    const destPath = join(UPLOADS_DIR, filename);
-
+    const origFilename = `${hash}${ext}`;
+    const destPath = join(UPLOADS_DIR, origFilename);
     const buffer = Buffer.from(await resp.arrayBuffer());
     writeFileSync(destPath, buffer);
-    return `/uploads/${filename}`;
+
+    const fallbackUrl = `/uploads/${origFilename}`;
+    return generateVariants(buffer, cacheKey, alt, fallbackUrl);
   } catch (err) {
     console.warn('[notion] Failed to download image:', err);
     return null;
@@ -216,7 +223,7 @@ function getImageCaption(block: any): string {
 
 interface PageContent {
   body: string;
-  images: Array<{ url: string; alt: string }>;
+  images: PostImage[];
 }
 
 /**
@@ -248,14 +255,9 @@ async function fetchPageContent(notion: Client, pageId: string): Promise<PageCon
         const srcUrl = getImageUrl(block);
         console.log(`[notion] Image block ${block.id}: srcUrl=${srcUrl ? 'found' : 'null'}`);
         if (srcUrl) {
-          const localPath = await downloadImage(srcUrl, block.id);
-          console.log(`[notion] Image block ${block.id}: localPath=${localPath ?? 'null'}`);
-          if (localPath) {
-            result.images.push({
-              url: localPath,
-              alt: getImageCaption(block) || '',
-            });
-          }
+          const img = await downloadAndOptimize(srcUrl, block.id, getImageCaption(block) || '');
+          console.log(`[notion] Image block ${block.id}: variants=${img ? 'ok' : 'null'}`);
+          if (img) result.images.push(img);
         }
       }
     }
@@ -354,9 +356,11 @@ export async function getNotionPosts(): Promise<NotionPost[]> {
       //   2. Image blocks in the page body — photos dragged/pasted into Notion
       // The property image comes first, then any body images, so it acts as
       // the "hero" photo for the card.
-      const images: Array<{ url: string; alt: string }> = [];
+      const images: PostImage[] = [];
       if (imageUrl) {
-        images.push({ url: imageUrl, alt: imageAlt || title });
+        // Use page.id + '-prop' as a stable cache key for the property image.
+        const img = await downloadAndOptimize(imageUrl, `${page.id}-prop`, imageAlt || title);
+        if (img) images.push(img);
       }
 
       const content = await fetchPageContent(notion, page.id);
